@@ -11,5 +11,4 @@ public interface Reader<T> {
     T get();
 
     void reset();
-
 }

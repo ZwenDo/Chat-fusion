@@ -1,5 +1,7 @@
 package fr.uge.chat_fusion.core.reader;
 
+import fr.uge.chat_fusion.core.BufferUtils;
+
 import java.nio.ByteBuffer;
 
 public class IntReader implements Reader<Integer> {
