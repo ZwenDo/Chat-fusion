@@ -8,7 +8,7 @@ val jvmVersion = JavaVersion.VERSION_17
 allprojects {
     apply(plugin = "java")
 
-    group = "fr.uge.chat_fusion"
+    group = "fr.uge.chatfusion"
     version = "0.1.0"
 
     repositories {
@@ -32,7 +32,7 @@ allprojects {
     }
 }
 
-val mainPackage = "fr.uge.chat_fusion"
+val mainPackage = "fr.uge.chatfusion"
 
 fun Project.jarConfig(mainClassFQName: String) {
     application {
