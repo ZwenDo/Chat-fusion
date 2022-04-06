@@ -1,4 +1,4 @@
-package fr.uge.chat_fusion.core;
+package fr.uge.chatfusion.core;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -6,7 +6,7 @@ import java.util.Objects;
 public final class BufferUtils {
 
     private BufferUtils() {
-        throw new AssertionError("Cannot instantiate BufferUtils.");
+        throw new AssertionError("No instances.");
     }
 
     public static void transferTo(ByteBuffer from, ByteBuffer to) {

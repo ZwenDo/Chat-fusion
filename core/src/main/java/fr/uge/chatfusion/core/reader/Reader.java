@@ -1,4 +1,4 @@
-package fr.uge.chat_fusion.core.reader;
+package fr.uge.chatfusion.core.reader;
 
 import java.nio.ByteBuffer;
 
@@ -6,7 +6,7 @@ public interface Reader<T> {
 
     enum ProcessStatus { DONE, REFILL, ERROR }
 
-    ProcessStatus process(ByteBuffer bb);
+    ProcessStatus process(ByteBuffer buffer);
 
     T get();
 

@@ -1,4 +1,5 @@
-package fr.uge.chat_fusion.client;
+package fr.uge.chatfusion.server;
 
 public final class Application {
+
 }
