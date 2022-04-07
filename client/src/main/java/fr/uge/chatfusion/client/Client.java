@@ -331,7 +331,7 @@ public class Client {
             usage();
             return;
         }
-        new Client(args[0],args[1],Integer.parseInt(args[2]));
+        new Client(args[0],args[1],Integer.parseInt(args[2])).launch();
 
     }
 }
