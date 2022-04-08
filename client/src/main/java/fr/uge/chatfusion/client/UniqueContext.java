@@ -5,7 +5,7 @@ import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.frame.FrameVisitor;
 import fr.uge.chatfusion.core.reader.FrameReaders;
 import fr.uge.chatfusion.core.reader.MultiFrameReader;
-import fr.uge.chatfusion.core.reader.Reader;
+import fr.uge.chatfusion.core.reader.base.Reader;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
 
@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -51,6 +50,7 @@ public final class UniqueContext implements SelectionKeyController {
 
     @Override
     public void doWrite() throws IOException {
+        // TODO add file buffer transfer
         inner.doWrite();
     }
 

@@ -5,7 +5,7 @@ import fr.uge.chatfusion.core.FrameOpcodes;
 import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.reader.FrameReaders;
 import fr.uge.chatfusion.core.reader.MultiFrameReader;
-import fr.uge.chatfusion.core.reader.Reader;
+import fr.uge.chatfusion.core.reader.base.Reader;
 import fr.uge.chatfusion.server.Server;
 
 import java.net.InetSocketAddress;

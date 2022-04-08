@@ -2,7 +2,7 @@ package fr.uge.chatfusion.server.context;
 
 import fr.uge.chatfusion.core.frame.FrameVisitor;
 import fr.uge.chatfusion.core.reader.MultiFrameReader;
-import fr.uge.chatfusion.core.reader.Reader;
+import fr.uge.chatfusion.core.reader.base.Reader;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
 

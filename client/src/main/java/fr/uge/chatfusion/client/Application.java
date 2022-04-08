@@ -23,7 +23,7 @@ public final class Application {
             var host = args[0];
             var port = Integer.parseInt(args[1]);
             var login = args[2];
-            if (Sizes.checkUsernameSize(login)) {
+            if (!Sizes.checkUsernameSize(login)) {
                 System.out.println("Username to long (max=" + Sizes.MAX_USERNAME_SIZE + ").");
             }
             var client = new Client(host, port, login);

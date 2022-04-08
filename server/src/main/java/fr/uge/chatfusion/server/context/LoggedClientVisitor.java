@@ -1,7 +1,7 @@
 package fr.uge.chatfusion.server.context;
 
+import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.frame.FrameVisitor;
-import fr.uge.chatfusion.core.frame.PublicMessage;
 import fr.uge.chatfusion.server.ClientToServerInterface;
 
 import java.util.Objects;
@@ -18,7 +18,7 @@ final class LoggedClientVisitor implements FrameVisitor<Void> {
     }
 
     @Override
-    public void visit(PublicMessage publicMessage, Void context) {
+    public void visit(Frame.PublicMessage publicMessage, Void context) {
         Objects.requireNonNull(publicMessage);
         server.sendPublicMessage(publicMessage);
     }

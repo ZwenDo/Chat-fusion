@@ -1,5 +1,7 @@
 package fr.uge.chatfusion.server;
 
+import fr.uge.chatfusion.core.frame.Frame;
+
 import java.io.IOException;
 
 public final class Application {

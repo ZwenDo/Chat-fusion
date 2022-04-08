@@ -1,9 +1,6 @@
 package fr.uge.chatfusion.server.context;
 
-import fr.uge.chatfusion.core.frame.FrameVisitor;
-import fr.uge.chatfusion.core.frame.FusionChangeLeader;
-import fr.uge.chatfusion.core.frame.FusionRequest;
-import fr.uge.chatfusion.core.frame.PublicMessage;
+import fr.uge.chatfusion.core.frame.*;
 import fr.uge.chatfusion.server.ServerToServerInterface;
 
 import java.net.InetSocketAddress;
@@ -25,19 +22,20 @@ final class FusedServerVisitor implements FrameVisitor<Void> {
     }
 
     @Override
-    public void visit(PublicMessage publicMessage, Void context) {
+    public void visit(Frame.PublicMessage publicMessage, Void context) {
         Objects.requireNonNull(publicMessage);
         server.forwardPublicMessage(publicMessage);
     }
 
     @Override
-    public void visit(FusionRequest fusionRequest, Void context) {
+    public void visit(Frame.FusionRequest fusionRequest, Void context) {
         Objects.requireNonNull(fusionRequest);
+        System.out.println(fusionRequest.remote());
         server.fusionRequest(fusionRequest, key, address);
     }
 
     @Override
-    public void visit(FusionChangeLeader fusionChangeLeader, Void context) {
+    public void visit(Frame.FusionChangeLeader fusionChangeLeader, Void context) {
         Objects.requireNonNull(fusionChangeLeader);
         server.changeLeader(fusionChangeLeader, key, address);
     }

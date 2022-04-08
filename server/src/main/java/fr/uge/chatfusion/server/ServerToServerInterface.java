@@ -9,19 +9,19 @@ public interface ServerToServerInterface {
 
     String name();
 
-    void tryFusion(FusionInit fusionInit, SelectionKey key);
+    void tryFusion(Frame.FusionInit fusionInit, SelectionKey key);
 
-    void mergeFusion(FusionMerge fusionMerge, SelectionKey key);
+    void mergeFusion(Frame.FusionMerge fusionMerge, SelectionKey key);
 
     InetSocketAddress leaderAddress();
 
-    void acceptFusion(FusionInitOk fusionInitOk, SelectionKey key);
+    void acceptFusion(Frame.FusionInitOk fusionInitOk, SelectionKey key);
 
-    void forwardPublicMessage(PublicMessage message);
+    void forwardPublicMessage(Frame.PublicMessage message);
 
-    void fusionRequest(FusionRequest fusionRequest, SelectionKey key, InetSocketAddress address);
+    void fusionRequest(Frame.FusionRequest fusionRequest, SelectionKey key, InetSocketAddress address);
 
-    void changeLeader(FusionChangeLeader changeLeader, SelectionKey key, InetSocketAddress address);
+    void changeLeader(Frame.FusionChangeLeader changeLeader, SelectionKey key, InetSocketAddress address);
 
-    void rejectFusion(FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address);
+    void rejectFusion(Frame.FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address);
 }

@@ -40,7 +40,7 @@ final class ServerToServerController {
         this.serverName = serverName;
     }
 
-    public boolean tryFusion(FusionInit fusionInit, SelectionKey key, Consumer<SelectionKey> onLeadLost) {
+    public boolean tryFusion(Frame.FusionInit fusionInit, SelectionKey key, Consumer<SelectionKey> onLeadLost) {
         Objects.requireNonNull(fusionInit);
         Objects.requireNonNull(key);
         Objects.requireNonNull(onLeadLost);
@@ -77,7 +77,7 @@ final class ServerToServerController {
         return true;
     }
 
-    public boolean mergeFusion(FusionMerge fusionMerge, SelectionKey key) {
+    public boolean mergeFusion(Frame.FusionMerge fusionMerge, SelectionKey key) {
         Objects.requireNonNull(fusionMerge);
         var ctx = (DefaultContext) key.attachment();
 
@@ -255,7 +255,7 @@ final class ServerToServerController {
     }
 
     public void changeLeader(
-        FusionChangeLeader newLeader,
+        Frame.FusionChangeLeader newLeader,
         SelectionKey key,
         Selector selector,
         Server server
@@ -290,7 +290,7 @@ final class ServerToServerController {
         ctx.queueData(data);
     }
 
-    public void rejectFusion(FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address) {
+    public void rejectFusion(Frame.FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address) {
         Objects.requireNonNull(fusionInitKo);
         Objects.requireNonNull(key);
         Objects.requireNonNull(address);

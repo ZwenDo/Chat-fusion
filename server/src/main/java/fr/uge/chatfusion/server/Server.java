@@ -76,12 +76,12 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
     }
 
     @Override
-    public void sendPublicMessage(PublicMessage message) {
+    public void sendPublicMessage(Frame.PublicMessage message) {
         Objects.requireNonNull(message);
         sendPublicMessage(message, false);
     }
 
-    private void sendPublicMessage(PublicMessage message, boolean isFwd) {
+    private void sendPublicMessage(Frame.PublicMessage message, boolean isFwd) {
         if (!serverClient.sendPublicMessage(message)) {
             return;
         }
@@ -97,13 +97,13 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
     }
 
     @Override
-    public void forwardPublicMessage(PublicMessage message) {
+    public void forwardPublicMessage(Frame.PublicMessage message) {
         Objects.requireNonNull(message);
         sendPublicMessage(message, true);
     }
 
     @Override
-    public void fusionRequest(FusionRequest fusionRequest, SelectionKey key, InetSocketAddress address) {
+    public void fusionRequest(Frame.FusionRequest fusionRequest, SelectionKey key, InetSocketAddress address) {
         if (serverServer.leader() != null) {
             logMessageAndClose(Level.SEVERE, "Fusion request without being leader", address, key.channel());
             return;
@@ -116,7 +116,7 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
     }
 
     @Override
-    public void changeLeader(FusionChangeLeader changeLeader, SelectionKey key, InetSocketAddress address) {
+    public void changeLeader(Frame.FusionChangeLeader changeLeader, SelectionKey key, InetSocketAddress address) {
         Objects.requireNonNull(changeLeader);
         Objects.requireNonNull(key);
         Objects.requireNonNull(address);
@@ -128,7 +128,7 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
     }
 
     @Override
-    public void rejectFusion(FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address) {
+    public void rejectFusion(Frame.FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address) {
         Objects.requireNonNull(fusionInitKo);
         Objects.requireNonNull(key);
         Objects.requireNonNull(address);
@@ -142,12 +142,12 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
     }
 
     @Override
-    public void tryFusion(FusionInit fusionInit, SelectionKey key) {
+    public void tryFusion(Frame.FusionInit fusionInit, SelectionKey key) {
         serverServer.tryFusion(fusionInit, key, keyToName::remove);
     }
 
     @Override
-    public void mergeFusion(FusionMerge fusionMerge, SelectionKey key) {
+    public void mergeFusion(Frame.FusionMerge fusionMerge, SelectionKey key) {
         Objects.requireNonNull(fusionMerge);
         Objects.requireNonNull(key);
         if (serverServer.mergeFusion(fusionMerge, key)) {
@@ -162,7 +162,7 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
     }
 
     @Override
-    public void acceptFusion(FusionInitOk fusionInitOk, SelectionKey key) {
+    public void acceptFusion(Frame.FusionInitOk fusionInitOk, SelectionKey key) {
         Objects.requireNonNull(fusionInitOk);
         Objects.requireNonNull(key);
         if (!serverServer.checkFusion(

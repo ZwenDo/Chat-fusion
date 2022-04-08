@@ -1,4 +1,4 @@
-package fr.uge.chatfusion.core.reader;
+package fr.uge.chatfusion.core.reader.base;
 
 
 import fr.uge.chatfusion.core.BufferUtils;
@@ -7,7 +7,7 @@ import fr.uge.chatfusion.core.Charsets;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
-public final class StringReader implements Reader<String> {
+final class StringReader implements Reader<String> {
     private static final int MAX_BUFFER_SIZE = 1024;
 
     private enum State {
@@ -16,7 +16,7 @@ public final class StringReader implements Reader<String> {
 
     private State state = State.WAITING_SIZE;
     private final ByteBuffer textBuffer = ByteBuffer.allocate(MAX_BUFFER_SIZE);
-    private final Reader<Integer> sizeReader = NumberReaders.intReader();
+    private final Reader<Integer> sizeReader = BaseReaders.intReader();
     private String text;
 
     @Override

@@ -1,6 +1,8 @@
 package fr.uge.chatfusion.core.reader;
 
 import fr.uge.chatfusion.core.frame.Frame;
+import fr.uge.chatfusion.core.reader.base.BaseReaders;
+import fr.uge.chatfusion.core.reader.base.Reader;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
@@ -14,7 +16,7 @@ public final class MultiFrameReader implements Reader<Frame> {
     }
 
     private final Map<Byte, Reader<? extends Frame>> readers;
-    private final Reader<Byte> opcodeReader = NumberReaders.byteReader();
+    private final Reader<Byte> opcodeReader = BaseReaders.byteReader();
     private State state = State.WAITING_OPCODE;
     private Reader<? extends Frame> currentReader;
 

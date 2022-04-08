@@ -1,6 +1,8 @@
 package fr.uge.chatfusion.core.reader;
 
 import fr.uge.chatfusion.core.frame.ServerInfo;
+import fr.uge.chatfusion.core.reader.base.BaseReaders;
+import fr.uge.chatfusion.core.reader.base.Reader;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -12,7 +14,7 @@ public final class ServerInfoReader implements Reader<ServerInfo> {
     }
 
     private State state = State.WAITING_NAME;
-    private final StringReader nameReader = new StringReader();
+    private final Reader<String> nameReader = BaseReaders.stringReader();
     private final InetSocketAddressReader addressReader = new InetSocketAddressReader();
 
     @Override

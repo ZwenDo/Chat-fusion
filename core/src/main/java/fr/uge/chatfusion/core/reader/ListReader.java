@@ -1,5 +1,8 @@
 package fr.uge.chatfusion.core.reader;
 
+import fr.uge.chatfusion.core.reader.base.BaseReaders;
+import fr.uge.chatfusion.core.reader.base.Reader;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +13,7 @@ public final class ListReader<E> implements Reader<List<E>> {
         DONE, WAITING_SIZE, WAITING_LIST, ERROR
     }
 
-
-    private final Reader<Integer> sizeReader = NumberReaders.intReader();
+    private final Reader<Integer> sizeReader = BaseReaders.intReader();
     private final Reader<E> reader;
     private List<E> list = new ArrayList<>();
     private int size;

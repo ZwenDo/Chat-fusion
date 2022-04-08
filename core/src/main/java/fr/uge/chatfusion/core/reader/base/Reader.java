@@ -1,4 +1,4 @@
-package fr.uge.chatfusion.core.reader;
+package fr.uge.chatfusion.core.reader.base;
 
 import java.nio.ByteBuffer;
 

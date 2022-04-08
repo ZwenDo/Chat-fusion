@@ -1,10 +1,14 @@
 package fr.uge.chatfusion.core.reader;
 
 import fr.uge.chatfusion.core.frame.ServerInfo;
+import fr.uge.chatfusion.core.reader.base.BaseReaders;
+import fr.uge.chatfusion.core.reader.base.Reader;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Function;
 
 public final class FrameReader<E> implements Reader<E> {
@@ -17,8 +21,8 @@ public final class FrameReader<E> implements Reader<E> {
     }
 
     // Readers
-    private final Reader<Integer> intReader = NumberReaders.intReader();
-    private final StringReader stringReader = new StringReader();
+    private final Reader<Integer> intReader = BaseReaders.intReader();
+    private final Reader<String> stringReader = BaseReaders.stringReader();
     private final InetSocketAddressReader addressReader = new InetSocketAddressReader();
     private final ServerInfoReader serverInfoReader = new ServerInfoReader();
 
@@ -125,7 +129,7 @@ public final class FrameReader<E> implements Reader<E> {
     }
 
 
-    static final class FrameContent {
+    public static final class FrameContent {
         private final ArrayDeque<Object> deque = new ArrayDeque<>();
 
         private void add(Object o) {
@@ -133,26 +137,14 @@ public final class FrameReader<E> implements Reader<E> {
             deque.add(o);
         }
 
-        public int nextInt() {
-            return (int) deque.pop();
-        }
-
-        public String nextString() {
-            return (String) deque.pop();
-        }
-
-        public InetSocketAddress nextAddress() {
-            return (InetSocketAddress) deque.pop();
-        }
-
-        public ServerInfo nextServerInfo() {
-            return (ServerInfo) deque.pop();
-        }
-
         @SuppressWarnings("unchecked")
-        public <T> List<T> nextList(Class<T> clazz) {
-            Objects.requireNonNull(clazz);
-            return (List<T>) deque.pop();
+        public <T> T next() {
+            var next = deque.pop();
+            try {
+                return (T) next;
+            } catch (ClassCastException e) {
+                throw new IllegalArgumentException("Wrong type, expected: " + next.getClass().getSimpleName());
+            }
         }
     }
 }

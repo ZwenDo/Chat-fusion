@@ -1,6 +1,8 @@
 package fr.uge.chatfusion.core.reader;
 
 import fr.uge.chatfusion.core.BufferUtils;
+import fr.uge.chatfusion.core.reader.base.BaseReaders;
+import fr.uge.chatfusion.core.reader.base.Reader;
 
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
@@ -14,8 +16,8 @@ public final class InetSocketAddressReader implements Reader<InetSocketAddress> 
         DONE, WAITING_KIND, WAITING_IP, WAITING_PORT, ERROR
     }
 
-    private final Reader<Byte> ipKindReader = NumberReaders.byteReader();
-    private final Reader<Integer> portReader = NumberReaders.intReader();
+    private final Reader<Byte> ipKindReader = BaseReaders.byteReader();
+    private final Reader<Integer> portReader = BaseReaders.intReader();
     private ByteBuffer ipBuffer;
     private State state = State.WAITING_KIND;
 

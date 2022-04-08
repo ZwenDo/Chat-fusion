@@ -1,9 +1,6 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.frame.FrameVisitor;
-import fr.uge.chatfusion.core.frame.LoginAccepted;
-import fr.uge.chatfusion.core.frame.LoginRefused;
-import fr.uge.chatfusion.core.frame.PublicMessage;
+import fr.uge.chatfusion.core.frame.*;
 
 import java.util.Objects;
 
@@ -16,19 +13,19 @@ public final class UniqueVisitor implements FrameVisitor<Void> {
     }
 
     @Override
-    public void visit(LoginAccepted loginAccepted, Void context) {
+    public void visit(Frame.LoginAccepted loginAccepted, Void context) {
         Objects.requireNonNull(loginAccepted);
         client.loginAccepted(loginAccepted.serverName());
     }
 
     @Override
-    public void visit(LoginRefused loginRefused, Void context) {
+    public void visit(Frame.LoginRefused loginRefused, Void context) {
         Objects.requireNonNull(loginRefused);
         client.loginRefused();
     }
 
     @Override
-    public void visit(PublicMessage publicMessage, Void context) {
+    public void visit(Frame.PublicMessage publicMessage, Void context) {
         Objects.requireNonNull(publicMessage);
         System.out.println(publicMessage.format());
     }

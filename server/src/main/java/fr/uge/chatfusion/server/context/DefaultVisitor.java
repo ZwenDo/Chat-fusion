@@ -22,31 +22,31 @@ final class DefaultVisitor implements FrameVisitor<Void> {
     }
 
     @Override
-    public void visit(AnonymousLogin anonymousLogin, Void context) {
+    public void visit(Frame.AnonymousLogin anonymousLogin, Void context) {
         Objects.requireNonNull(anonymousLogin);
         server.tryToConnectAnonymously(anonymousLogin.username(), key);
     }
 
     @Override
-    public void visit(FusionInit fusionInit, Void context) {
+    public void visit(Frame.FusionInit fusionInit, Void context) {
         Objects.requireNonNull(fusionInit);
         server.tryFusion(fusionInit, key);
     }
 
     @Override
-    public void visit(FusionMerge fusionMerge, Void context) {
+    public void visit(Frame.FusionMerge fusionMerge, Void context) {
         Objects.requireNonNull(fusionMerge);
         server.mergeFusion(fusionMerge, key);
     }
 
     @Override
-    public void visit(FusionInitOk fusionInitOk, Void context) {
+    public void visit(Frame.FusionInitOk fusionInitOk, Void context) {
         Objects.requireNonNull(fusionInitOk);
         server.acceptFusion(fusionInitOk, key);
     }
 
     @Override
-    public void visit(FusionInitKo fusionInitKo, Void context) {
+    public void visit(Frame.FusionInitKo fusionInitKo, Void context) {
         Objects.requireNonNull(fusionInitKo);
         server.rejectFusion(fusionInitKo, key, remoteAddress);
     }

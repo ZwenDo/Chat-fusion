@@ -4,7 +4,7 @@ import fr.uge.chatfusion.core.CloseableUtils;
 import fr.uge.chatfusion.core.FrameBuilder;
 import fr.uge.chatfusion.core.FrameOpcodes;
 import fr.uge.chatfusion.core.Sizes;
-import fr.uge.chatfusion.core.frame.PublicMessage;
+import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.server.context.LoggedClientContext;
 import fr.uge.chatfusion.server.context.DefaultContext;
 
@@ -64,7 +64,7 @@ final class ClientToServerController {
         return true;
     }
 
-    public boolean sendPublicMessage(PublicMessage message) {
+    public boolean sendPublicMessage(Frame.PublicMessage message) {
         Objects.requireNonNull(message);
 
         if (!Sizes.checkMessageSize(message.message())) {

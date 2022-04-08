@@ -1,28 +1,31 @@
 package fr.uge.chatfusion.core.reader;
 
 import fr.uge.chatfusion.core.frame.*;
+import fr.uge.chatfusion.core.reader.base.Reader;
+
+import java.util.List;
 
 public final class FrameReaders {
     private FrameReaders() {
         throw new AssertionError("No instances.");
     }
 
-    public static Reader<AnonymousLogin> anonymousLoginReader() {
-        return new FrameReader<>(c -> new AnonymousLogin(c.nextString()), FrameReader.ArgType.STRING);
+    public static Reader<Frame.AnonymousLogin> anonymousLoginReader() {
+        return new FrameReader<>(c -> new Frame.AnonymousLogin(c.next()), FrameReader.ArgType.STRING);
     }
 
-    public static Reader<PublicMessage> publicMessageReader() {
+    public static Reader<Frame.PublicMessage> publicMessageReader() {
         return new FrameReader<>(
-            c -> new PublicMessage(c.nextString(), c.nextString(), c.nextString()),
+            c -> new Frame.PublicMessage(c.next(), c.next(), c.next()),
             FrameReader.ArgType.STRING,
             FrameReader.ArgType.STRING,
             FrameReader.ArgType.STRING
         );
     }
 
-    public static Reader<FusionInit> fusionInitReader() {
+    public static Reader<Frame.FusionInit> fusionInitReader() {
         return new FrameReader<>(
-            c -> new FusionInit(c.nextString(), c.nextAddress(), c.nextList(ServerInfo.class)),
+            c -> new Frame.FusionInit(c.next(), c.next(), c.next()),
             FrameReader.ArgType.STRING,
             FrameReader.ArgType.ADDRESS,
             FrameReader.ArgType.LIST,
@@ -30,33 +33,33 @@ public final class FrameReaders {
         );
     }
 
-    public static Reader<FusionInitFwd> fusionInitFwdReader() {
-        return new FrameReader<>(c -> new FusionInitFwd(c.nextAddress()), FrameReader.ArgType.ADDRESS);
+    public static Reader<Frame.FusionInitFwd> fusionInitFwdReader() {
+        return new FrameReader<>(c -> new Frame.FusionInitFwd(c.next()), FrameReader.ArgType.ADDRESS);
     }
 
-    public static Reader<LoginAccepted> loginAcceptedReader() {
-        return new FrameReader<>(c -> new LoginAccepted(c.nextString()), FrameReader.ArgType.STRING);
+    public static Reader<Frame.LoginAccepted> loginAcceptedReader() {
+        return new FrameReader<>(c -> new Frame.LoginAccepted(c.next()), FrameReader.ArgType.STRING);
     }
 
-    public static Reader<LoginRefused> loginRefusedReader() {
-        return new FrameReader<>(c -> new LoginRefused());
+    public static Reader<Frame.LoginRefused> loginRefusedReader() {
+        return new FrameReader<>(c -> new Frame.LoginRefused());
     }
 
-    public static Reader<FusionInitKo> fusionInitKoReader() {
-        return new FrameReader<>(c -> new FusionInitKo());
+    public static Reader<Frame.FusionInitKo> fusionInitKoReader() {
+        return new FrameReader<>(c -> new Frame.FusionInitKo());
     }
 
-    public static Reader<FusionMerge> fusionMergeReader() {
-        return new FrameReader<>(c -> new FusionMerge(c.nextString()), FrameReader.ArgType.STRING);
+    public static Reader<Frame.FusionMerge> fusionMergeReader() {
+        return new FrameReader<>(c -> new Frame.FusionMerge(c.next()), FrameReader.ArgType.STRING);
     }
 
-    public static Reader<FusionRequest> fusionRequestReader() {
-        return new FrameReader<>(c -> new FusionRequest(c.nextAddress()), FrameReader.ArgType.ADDRESS);
+    public static Reader<Frame.FusionRequest> fusionRequestReader() {
+        return new FrameReader<>(c -> new Frame.FusionRequest(c.next()), FrameReader.ArgType.ADDRESS);
     }
 
-    public static Reader<FusionInitOk> fusionInitOkReader() {
+    public static Reader<Frame.FusionInitOk> fusionInitOkReader() {
         return new FrameReader<>(
-            c -> new FusionInitOk(c.nextString(), c.nextAddress(), c.nextList(ServerInfo.class)),
+            c -> new Frame.FusionInitOk(c.next(), c.next(), c.next()),
             FrameReader.ArgType.STRING,
             FrameReader.ArgType.ADDRESS,
             FrameReader.ArgType.LIST,
@@ -64,9 +67,9 @@ public final class FrameReaders {
         );
     }
 
-    public static Reader<FusionChangeLeader> fusionChangeLeaderReader() {
+    public static Reader<Frame.FusionChangeLeader> fusionChangeLeaderReader() {
         return new FrameReader<>(
-            c -> new FusionChangeLeader(c.nextString(), c.nextAddress()),
+            c -> new Frame.FusionChangeLeader(c.next(), c.next()),
             FrameReader.ArgType.STRING,
             FrameReader.ArgType.ADDRESS
         );
