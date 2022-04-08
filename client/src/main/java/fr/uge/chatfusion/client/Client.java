@@ -3,7 +3,9 @@ package fr.uge.chatfusion.client;
 import fr.uge.chatfusion.core.CloseableUtils;
 import fr.uge.chatfusion.core.FrameBuilder;
 import fr.uge.chatfusion.core.FrameOpcodes;
+import fr.uge.chatfusion.core.Sizes;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.Selector;
@@ -47,6 +49,16 @@ final class Client {
 
     public void loginAccepted(String serverName) {
         Objects.requireNonNull(serverName);
+        if (!Sizes.checkServerNameSize(serverName)) {
+            System.out.println(
+                "Error, server name ("
+                    + serverName
+                    + ") is too long, max = "
+                    + Sizes.MAX_SERVER_NAME_SIZE
+            );
+            shutdown();
+            return;
+        }
         System.out.println(
             "Login successful. Welcome on "
                 + serverName
@@ -68,6 +80,11 @@ final class Client {
     }
 
     public void sendMessage(String input) {
+        Objects.requireNonNull(input);
+        if (!Sizes.checkMessageSize(input)) {
+            System.out.println("Message too long !");
+            return;
+        }
         controller.addCommand(() -> {
             var data = new FrameBuilder(FrameOpcodes.PUBLIC_MESSAGE)
                 .addString(serverName)

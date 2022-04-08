@@ -1,5 +1,7 @@
 package fr.uge.chatfusion.client;
 
+import fr.uge.chatfusion.core.Sizes;
+
 import java.io.IOException;
 
 public final class Application {
@@ -18,10 +20,13 @@ public final class Application {
         }
 
         try {
-            var serverName = args[0];
+            var host = args[0];
             var port = Integer.parseInt(args[1]);
             var login = args[2];
-            var client = new Client(serverName, port, login);
+            if (Sizes.checkUsernameSize(login)) {
+                System.out.println("Username to long (max=" + Sizes.MAX_USERNAME_SIZE + ").");
+            }
+            var client = new Client(host, port, login);
             client.launch();
         } catch (NumberFormatException e) {
             System.err.println("Invalid port number" + args[1]);

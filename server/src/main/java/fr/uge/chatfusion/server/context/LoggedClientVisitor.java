@@ -22,4 +22,6 @@ final class LoggedClientVisitor implements FrameVisitor<Void> {
         Objects.requireNonNull(publicMessage);
         server.sendPublicMessage(publicMessage);
     }
+
+
 }
