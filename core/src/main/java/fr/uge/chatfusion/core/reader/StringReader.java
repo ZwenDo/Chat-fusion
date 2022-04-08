@@ -2,14 +2,12 @@ package fr.uge.chatfusion.core.reader;
 
 
 import fr.uge.chatfusion.core.BufferUtils;
+import fr.uge.chatfusion.core.Charsets;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 public final class StringReader implements Reader<String> {
-    private static final Charset CS = StandardCharsets.UTF_8;
     private static final int MAX_BUFFER_SIZE = 1024;
 
     private enum State {
@@ -38,13 +36,8 @@ public final class StringReader implements Reader<String> {
             }
         }
 
-        buffer.flip();
-        try {
-            if (state == State.WAITING_TEXT) {
-                computeText(buffer);
-            }
-        } finally {
-            buffer.compact();
+        if (state == State.WAITING_TEXT) {
+            computeText(buffer);
         }
 
         if (text == null) return ProcessStatus.REFILL;
@@ -73,7 +66,7 @@ public final class StringReader implements Reader<String> {
         BufferUtils.transferTo(buffer, textBuffer);
         if (!textBuffer.hasRemaining()) {
             textBuffer.flip();
-            text = CS.decode(textBuffer).toString();
+            text = Charsets.DEFAULT_CHARSET.decode(textBuffer).toString();
             textBuffer.compact();
         }
     }

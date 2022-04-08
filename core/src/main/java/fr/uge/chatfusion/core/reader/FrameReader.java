@@ -1,36 +1,45 @@
 package fr.uge.chatfusion.core.reader;
 
+import fr.uge.chatfusion.core.frame.ServerInfo;
+
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.function.Consumer;
+import java.util.*;
 import java.util.function.Function;
 
 public final class FrameReader<E> implements Reader<E> {
     public enum ArgType {
-        INT, STRING
+        INT, STRING, ADDRESS, SERVER_INFO, LIST
     }
+
     private enum State {
         DONE, WAITING, ERROR
     }
 
+    // Readers
     private final Reader<Integer> intReader = NumberReaders.intReader();
     private final StringReader stringReader = new StringReader();
+    private final InetSocketAddressReader addressReader = new InetSocketAddressReader();
+    private final ServerInfoReader serverInfoReader = new ServerInfoReader();
+
+    private ListReader<?> listReader;
+    private boolean readingList;
+
     private final Function<? super FrameContent, E> constructor;
     private final ArgType[] argTypes;
     private FrameContent content = new FrameContent();
     private int argIndex;
     private State state = State.WAITING;
+    private E frame;
+
+
 
     public FrameReader(Function<? super FrameContent, E> constructor, ArgType... types) {
         Objects.requireNonNull(constructor);
-        if (types.length < 1) {
-            throw new IllegalArgumentException("At least one argument type is required");
-        }
         this.constructor = constructor;
         this.argTypes = Arrays.copyOf(types, types.length);
     }
+
 
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
@@ -39,19 +48,52 @@ public final class FrameReader<E> implements Reader<E> {
             throw new IllegalStateException("Reader is already done or in error state");
         }
 
-        var status = switch (argTypes[argIndex]) {
-            case INT -> readInt(buffer);
-            case STRING -> readString(buffer);
-        };
-
-        if (status != ProcessStatus.DONE) {
-            if (status == ProcessStatus.ERROR) {
-                state = State.ERROR;
+        ProcessStatus status;
+        while (argIndex < argTypes.length) {
+            if (readingList) {
+                status = read(buffer, listReader);
+                if (status == ProcessStatus.DONE) readingList = false;
+            } else {
+                status = switch (argTypes[argIndex]) {
+                    case INT -> read(buffer, intReader);
+                    case STRING -> read(buffer, stringReader);
+                    case ADDRESS -> read(buffer, addressReader);
+                    case SERVER_INFO -> read(buffer, serverInfoReader);
+                    case LIST -> readList(buffer);
+                };
             }
-            return status;
+
+            if (status != ProcessStatus.DONE) {
+                if (status == ProcessStatus.ERROR) {
+                    state = State.ERROR;
+                }
+                return status;
+            }
+
+            argIndex++;
         }
 
-        return argIndex < argTypes.length ? ProcessStatus.REFILL : ProcessStatus.DONE;
+        frame = constructor.apply(content);
+        return ProcessStatus.DONE;
+    }
+
+
+    private ProcessStatus readList(ByteBuffer buffer) {
+        if (argIndex >= argTypes.length) {
+            throw new IllegalStateException("List argument is missing");
+        }
+
+        var inner = (Reader<?>) switch (argTypes[argIndex + 1]) {
+            case INT -> intReader;
+            case STRING -> stringReader;
+            case ADDRESS -> addressReader;
+            case SERVER_INFO -> serverInfoReader;
+            case LIST -> throw new IllegalStateException("List cannot be nested");
+        };
+
+        listReader = new ListReader<>(inner);
+        readingList = true;
+        return ProcessStatus.DONE;
     }
 
     @Override
@@ -59,7 +101,7 @@ public final class FrameReader<E> implements Reader<E> {
         if (argIndex < argTypes.length) {
             throw new IllegalStateException("Not done");
         }
-        return constructor.apply(content);
+        return frame;
     }
 
     @Override
@@ -70,52 +112,47 @@ public final class FrameReader<E> implements Reader<E> {
         content = new FrameContent();
     }
 
-    private ProcessStatus readInt(ByteBuffer buffer) {
-        return read(buffer, intReader, content::addInt);
-    }
 
-    private ProcessStatus readString(ByteBuffer buffer) {
-        return read(buffer, stringReader, content::addString);
-    }
-
-    private <T> ProcessStatus read(ByteBuffer buffer, Reader<T> reader, Consumer<T> action) {
+    private <T> ProcessStatus read(ByteBuffer buffer, Reader<T> reader) {
         var status = reader.process(buffer);
         if (status != ProcessStatus.DONE) {
             return status;
         }
-        action.accept(reader.get());
+
+        content.add(reader.get());
         reader.reset();
-        argIndex++;
         return status;
     }
 
-    public static final class FrameContent {
-        private final ArrayDeque<String> strings = new ArrayDeque<>();
-        private final ArrayDeque<Integer> ints = new ArrayDeque<>();
 
-        private void addString(String s) {
-            Objects.requireNonNull(s);
-            strings.add(s);
+    static final class FrameContent {
+        private final ArrayDeque<Object> deque = new ArrayDeque<>();
+
+        private void add(Object o) {
+            Objects.requireNonNull(o);
+            deque.add(o);
         }
 
-        private void addInt(int i) {
-            ints.add(i);
-        }
-        
         public int nextInt() {
-            return ints.pop();
+            return (int) deque.pop();
         }
 
         public String nextString() {
-            return strings.pop();
-        }
-        
-        public int intsCount() {
-            return ints.size();
+            return (String) deque.pop();
         }
 
-        public int stringsCount() {
-            return strings.size();
+        public InetSocketAddress nextAddress() {
+            return (InetSocketAddress) deque.pop();
+        }
+
+        public ServerInfo nextServerInfo() {
+            return (ServerInfo) deque.pop();
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> List<T> nextList(Class<T> clazz) {
+            Objects.requireNonNull(clazz);
+            return (List<T>) deque.pop();
         }
     }
 }

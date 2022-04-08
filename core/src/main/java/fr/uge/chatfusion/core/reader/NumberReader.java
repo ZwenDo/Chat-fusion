@@ -31,12 +31,9 @@ final class NumberReader<E extends Number> implements Reader<E> {
         if (state == State.DONE) {
             throw new IllegalStateException("Already done.");
         }
-        buffer.flip();
-        try {
-            BufferUtils.transferTo(buffer, internalBuffer);
-        } finally {
-            buffer.compact();
-        }
+
+        BufferUtils.transferTo(buffer, internalBuffer);
+
         if (internalBuffer.hasRemaining()) {
             return ProcessStatus.REFILL;
         }

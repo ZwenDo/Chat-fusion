@@ -1,5 +1,6 @@
 package fr.uge.chatfusion.core;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
@@ -15,21 +16,31 @@ public final class Sizes {
 
     public static boolean checkMessageSize(String message) {
         Objects.requireNonNull(message);
-        return message.getBytes(StandardCharsets.UTF_8).length < MAX_MESSAGE_SIZE;
+        return checkSize(message, MAX_MESSAGE_SIZE);
     }
 
     public static boolean checkUsernameSize(String username) {
         Objects.requireNonNull(username);
-        return username.getBytes(StandardCharsets.UTF_8).length < MAX_USERNAME_SIZE;
+        return checkSize(username, MAX_USERNAME_SIZE);
     }
 
     public static boolean checkPasswordSize(String password) {
         Objects.requireNonNull(password);
-        return password.getBytes(StandardCharsets.UTF_8).length < MAX_PASSWORD_SIZE;
+        return checkSize(password, MAX_PASSWORD_SIZE);
     }
 
     public static boolean checkServerNameSize(String serverName) {
         Objects.requireNonNull(serverName);
-        return serverName.getBytes(StandardCharsets.UTF_8).length < MAX_SERVER_NAME_SIZE;
+        return checkSize(serverName, MAX_SERVER_NAME_SIZE);
+    }
+
+    public static int stringSize(String string) {
+        Objects.requireNonNull(string);
+        return string.getBytes(Charsets.DEFAULT_CHARSET).length;
+    }
+
+    private static boolean checkSize(String string, int maxSize) {
+        var size = stringSize(string);
+        return size < maxSize && size > 0;
     }
 }
