@@ -7,6 +7,7 @@ import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.Objects;
 
 final class Client {
@@ -31,9 +32,11 @@ final class Client {
         var key = controller.createSelectionKey();
         var skeyController = new SelectionKeyControllerImpl(key, serverAddress, false);
         skeyController.setVisitor(new UniqueVisitor(this));
+        skeyController.setOnClose(this::shutdown);
+        var data = Frame.AnonymousLogin.buffer(login);
+        skeyController.queueData(data);
         key.attach(skeyController);
         context = skeyController;
-
         controller.launch();
     }
 

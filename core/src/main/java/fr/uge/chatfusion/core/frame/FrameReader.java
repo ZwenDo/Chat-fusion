@@ -52,7 +52,7 @@ final class FrameReader implements Reader<Frame> {
                 return status;
             }
         }
-        currentReader.reset();
+
         state = State.DONE;
         return ProcessStatus.DONE;
     }
@@ -80,6 +80,7 @@ final class FrameReader implements Reader<Frame> {
     @Override
     public void reset() {
         state = State.WAITING_OPCODE;
+        currentReader.reset();
     }
 
     private static Function<Byte, Reader<Frame>> opcodeToReader(Reader<Byte> byteReader) {

@@ -46,7 +46,7 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     @Override
     public void doRead() throws IOException {
         if (sc.read(bufferIn) == -1) {
-            logAndClose(Level.INFO, sc.getRemoteAddress() + " Connection closed by client.");
+            logAndClose(Level.INFO, sc.getRemoteAddress() + " Connection closed remotely.");
             return;
         }
 
@@ -160,6 +160,7 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
                 reader.get().accept(visitor);
                 reader.reset();
             } catch (IllegalStateException e) {
+                e.printStackTrace();
                 logAndClose(Level.SEVERE,"Error while reading. Closing connection...\n" + e.getMessage());
                 break;
             }

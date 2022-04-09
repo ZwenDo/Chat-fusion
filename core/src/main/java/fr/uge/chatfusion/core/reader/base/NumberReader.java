@@ -46,7 +46,7 @@ final class NumberReader<E extends Number> implements Reader<E> {
     @Override
     public E get() {
         if (state != State.DONE) {
-            throw new IllegalStateException("Not done.");
+            throw new IllegalStateException("Reader is not done.");
         }
         return value;
     }

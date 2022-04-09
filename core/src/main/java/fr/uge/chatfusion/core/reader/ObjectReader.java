@@ -66,7 +66,7 @@ final class ObjectReader<E> implements Reader<E> {
     @Override
     public E get() {
         if (index < readers.length) {
-            throw new IllegalStateException("Not done");
+            throw new IllegalStateException("Reader is not done");
         }
         return object;
     }
