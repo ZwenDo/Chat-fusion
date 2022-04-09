@@ -1,25 +1,20 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.CloseableUtils;
-import fr.uge.chatfusion.core.FrameBuilder;
-import fr.uge.chatfusion.core.FrameOpcodes;
 import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.frame.Frame;
+import fr.uge.chatfusion.core.selection.SelectionKeyController;
+import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
 import java.util.Objects;
 
 final class Client {
-    private final SocketChannel socketChannel = SocketChannel.open();
-    private final InetSocketAddress serverAddress;
     private final String login;
     private final SocketChannelController controller;
-    private final Selector selector = Selector.open();
-    private UniqueContext context;
     private String serverName;
+    private final InetSocketAddress serverAddress;
+    private SelectionKeyController context;
 
     public Client(String host, int port, String login) throws IOException {
         Objects.requireNonNull(host);
@@ -28,23 +23,23 @@ final class Client {
         }
         Objects.requireNonNull(login);
         this.serverAddress = new InetSocketAddress(host, port);
+        this.controller = new SocketChannelController(serverAddress);
         this.login = login;
-        this.controller = new SocketChannelController(socketChannel, serverAddress, selector);
     }
 
     public void launch() throws IOException {
-        controller.launch(this, (ctx) -> {
-            context = ctx;
-            var data = new FrameBuilder(FrameOpcodes.ANONYMOUS_LOGIN)
-                .addString(login)
-                .build();
-            ctx.queueData(data);
-        });
+        var key = controller.createSelectionKey();
+        var skeyController = new SelectionKeyControllerImpl(key, serverAddress, false);
+        skeyController.setVisitor(new UniqueVisitor(this));
+        key.attach(skeyController);
+        context = skeyController;
+
+        controller.launch();
     }
 
     public void shutdown() {
         System.out.println("Shutting down the client...");
-        CloseableUtils.silentlyClose(selector);
+        controller.shutdown();
     }
 
     public void loginAccepted(String serverName) {
@@ -71,7 +66,6 @@ final class Client {
         var console = new Thread(new ClientConsole(this), "Client console");
         console.setDaemon(true);
         console.start();
-
     }
 
     public void loginRefused() {
@@ -86,11 +80,7 @@ final class Client {
             return;
         }
         controller.addCommand(() -> {
-            var data = new FrameBuilder(FrameOpcodes.PUBLIC_MESSAGE)
-                .addString(serverName)
-                .addString(login)
-                .addString(input)
-                .build();
+            var data = Frame.PublicMessage.buffer(serverName, login, input);
             context.queueData(data);
         });
     }

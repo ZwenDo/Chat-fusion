@@ -1,39 +1,32 @@
 package fr.uge.chatfusion.server;
 
 import fr.uge.chatfusion.core.CloseableUtils;
-import fr.uge.chatfusion.core.FrameBuilder;
-import fr.uge.chatfusion.core.FrameOpcodes;
-import fr.uge.chatfusion.core.frame.*;
-import fr.uge.chatfusion.server.context.LoggedClientContext;
-import fr.uge.chatfusion.server.context.Context;
-import fr.uge.chatfusion.server.context.DefaultContext;
-import fr.uge.chatfusion.server.context.FusedServerContext;
+import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.frame.Frame;
+import fr.uge.chatfusion.server.visitor.*;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.util.HashMap;
+import java.nio.channels.SocketChannel;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public final class Server implements ClientToServerInterface, ServerToServerInterface {
+final class Server implements ClientToServerInterface, ServerToServerInterface, UnknownToServerInterface {
     private static final Logger LOGGER = Logger.getLogger(Server.class.getName());
 
-    private final ServerSocketChannelController controller;
-    private final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
     private final Selector selector = Selector.open();
+    private final ServerSocketChannelController controller;
     private final ClientToServerController serverClient;
     private final ServerToServerController serverServer;
     private final String serverName;
-
     private final InetSocketAddress address;
-    private final HashMap<SelectionKey, String> keyToName = new HashMap<>();
 
     public Server(String serverName, int port) throws IOException {
         Objects.requireNonNull(serverName);
@@ -41,17 +34,10 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
             throw new IllegalArgumentException("Invalid port: " + port);
         }
         this.serverName = serverName;
-        this.serverSocketChannel.bind(new InetSocketAddress(port));
-        this.controller = new ServerSocketChannelController(
-            this,
-            serverSocketChannel,
-            selector,
-            this::onException
-        );
         this.address = new InetSocketAddress(InetAddress.getLocalHost(), port);
-
-        this.serverClient = new ClientToServerController(serverName);
-        this.serverServer = new ServerToServerController(address, serverName);
+        this.controller = new ServerSocketChannelController(this, address, selector);
+        this.serverClient = new ClientToServerController(serverName, this);
+        this.serverServer = new ServerToServerController(serverName, this, address);
     }
 
     public void launch() throws IOException {
@@ -64,137 +50,114 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
     }
 
     @Override
-    public String name() {
-        return serverName;
+    public void connectAnonymously(Frame.AnonymousLogin anonymousLogin, UnknownRemoteInfo infos) {
+        serverClient.connectAnonymously(anonymousLogin, infos);
     }
 
     @Override
-    public void tryToConnectAnonymously(String login, SelectionKey key) {
-        if (serverClient.tryToConnectAnonymously(login, key)) {
-            keyToName.put(key, login);
-        }
+    public void tryFusion(Frame.FusionInit fusionInit, UnknownRemoteInfo infos) {
+        serverServer.tryFusion(fusionInit, infos);
     }
 
     @Override
-    public void sendPublicMessage(Frame.PublicMessage message) {
-        Objects.requireNonNull(message);
-        sendPublicMessage(message, false);
-    }
-
-    private void sendPublicMessage(Frame.PublicMessage message, boolean isFwd) {
-        if (!serverClient.sendPublicMessage(message)) {
-            return;
-        }
-        var data = new FrameBuilder(FrameOpcodes.PUBLIC_MESSAGE)
-            .addString(message.originServer())
-            .addString(message.senderUsername())
-            .addString(message.message());
-        if (serverServer.leader() == null) {
-            serverServer.sendToAllExcept(data, message.originServer());
-        } else if (!isFwd) {
-            serverServer.leader().queueData(data.build());
-        }
+    public void fusionMerge(Frame.FusionMerge fusionMerge, UnknownRemoteInfo infos) {
+        serverServer.fusionMerge(fusionMerge, infos);
     }
 
     @Override
-    public void forwardPublicMessage(Frame.PublicMessage message) {
-        Objects.requireNonNull(message);
-        sendPublicMessage(message, true);
+    public void fusionAccepted(Frame.FusionInitOk fusionInitOk, UnknownRemoteInfo infos) {
+        serverServer.acceptFusion(fusionInitOk, infos);
     }
 
     @Override
-    public void fusionRequest(Frame.FusionRequest fusionRequest, SelectionKey key, InetSocketAddress address) {
-        if (serverServer.leader() != null) {
-            logMessageAndClose(Level.SEVERE, "Fusion request without being leader", address, key.channel());
-            return;
-        }
-
-        LOGGER.log(Level.INFO, "Fusion request from " + address);
-        if (!initFusion(fusionRequest.remote())) {
-            logMessageAndClose(Level.SEVERE, "Server cannot fuse with itself.", address, key.channel());
-        }
-    }
-
-    @Override
-    public void changeLeader(Frame.FusionChangeLeader changeLeader, SelectionKey key, InetSocketAddress address) {
-        Objects.requireNonNull(changeLeader);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(address);
-        try {
-            serverServer.changeLeader(changeLeader, key, selector, this);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    @Override
-    public void rejectFusion(Frame.FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address) {
+    public void fusionRejected(Frame.FusionInitKo fusionInitKo, UnknownRemoteInfo infos) {
         Objects.requireNonNull(fusionInitKo);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(address);
-        serverServer.rejectFusion(fusionInitKo, key, address);
+        Objects.requireNonNull(infos);
+        serverServer.rejectFusion(fusionInitKo, infos);
     }
 
     @Override
-    public void disconnectClient(String username) {
-        var client = serverClient.disconnectClient(username);
-        keyToName.remove(client.key());
+    public void sendPublicMessage(Frame.PublicMessage message, RemoteInfo infos) {
+        sendPublicMessage(message, infos, false);
     }
 
     @Override
-    public void tryFusion(Frame.FusionInit fusionInit, SelectionKey key) {
-        serverServer.tryFusion(fusionInit, key, keyToName::remove);
+    public void forwardPublicMessage(Frame.PublicMessage message, RemoteInfo infos) {
+        sendPublicMessage(message, infos, true);
     }
 
     @Override
-    public void mergeFusion(Frame.FusionMerge fusionMerge, SelectionKey key) {
-        Objects.requireNonNull(fusionMerge);
-        Objects.requireNonNull(key);
-        if (serverServer.mergeFusion(fusionMerge, key)) {
-            keyToName.put(key, fusionMerge.name());
+    public void fusionRequest(Frame.FusionRequest fusionRequest, RemoteInfo infos) {
+        Objects.requireNonNull(fusionRequest);
+        Objects.requireNonNull(infos);
+        if (!serverServer.isLeader()) {
+            logMessageAndClose(
+                Level.SEVERE,
+                "Received fusion request from " + infos.name() + " without being leader",
+                infos.address(),
+                infos.connection()
+            );
+            return;
         }
+        LOGGER.log(Level.INFO, "Fusion request from " + infos.address());
+        initFusion(fusionRequest.remote());
     }
 
     @Override
-    public InetSocketAddress leaderAddress() {
-        var leader = serverServer.leader();
-        return leader != null ? leader.remoteAddress() : address;
+    public void changeLeader(Frame.FusionChangeLeader changeLeader, RemoteInfo infos) {
+        Objects.requireNonNull(changeLeader);
+        Objects.requireNonNull(infos);
+        controller.addCommand(() -> {
+            try {
+                serverServer.changeLeader(changeLeader, infos, this::connectTo);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
     }
 
-    @Override
-    public void acceptFusion(Frame.FusionInitOk fusionInitOk, SelectionKey key) {
-        Objects.requireNonNull(fusionInitOk);
-        Objects.requireNonNull(key);
-        if (!serverServer.checkFusion(
-            fusionInitOk.serverName(),
-            fusionInitOk.serverAddress(),
-            fusionInitOk.members(),
-            key
-        )) {
+    private void sendPublicMessage(Frame.PublicMessage message, RemoteInfo infos, boolean isFwd) {
+        if (!Sizes.checkMessageSize(message.message())) {
+            logMessageAndClose(
+                Level.WARNING,
+                "Message too long from: "
+                    + message.originServer()
+                    + "/" + message.senderUsername(),
+                infos.address(),
+                infos.connection()
+            );
             return;
         }
 
-        LOGGER.log(Level.INFO,
-            "Fusion accepted by distant server "
-                + fusionInitOk.serverName()
-                + "("
-                + fusionInitOk.serverAddress()
-                + ")"
-        );
-        var ctx = (DefaultContext) key.attachment();
-        serverServer.fuse(
-            fusionInitOk.serverName(),
-            fusionInitOk.members(),
-            fusionInitOk.serverAddress(),
-            ctx,
-            keyToName::remove
-        );
+        if (!checkValidForward(message.originServer(), infos, isFwd)) {
+            return;
+        }
 
+        if (isFwd) {
+            if (!serverServer.forwardPublicMessage(message, infos)) {
+                return;
+            }
+        }
+        serverClient.sendPublicMessage(message, infos);
+    }
+
+    private boolean checkValidForward(String originServer, RemoteInfo infos, boolean isForwarded) {
+        if (isForwarded && serverName.equals(originServer) ||
+            !isForwarded && !serverName.equals(originServer)) {
+            logMessageAndClose(
+                Level.SEVERE,
+                "Invalid origin server and forwarding state: " + originServer,
+                infos.address(),
+                infos.connection()
+            );
+            return false;
+        }
+        return true;
     }
 
     void shutdown() {
         LOGGER.log(Level.INFO, "Stop accepting new connections");
-        CloseableUtils.silentlyClose(serverSocketChannel);
+        controller.shutdown();
     }
 
     void shutdownNow() {
@@ -202,27 +165,14 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
         CloseableUtils.silentlyClose(selector);
     }
 
-    void info() {
-        var leader = serverServer.leader();
-        System.out.println(
-            "Server Information:\nName = "
-                + serverName
-                + "\nLeader = "
-                + (leader != null ? leader.serverName() + " (" + leader.remoteAddress() + ")\n\n" : "self\n\n")
-                + serverServer.info()
-                + "\n" +
-                serverClient.info()
-        );
-    }
-
     boolean initFusion(InetSocketAddress remote) {
         Objects.requireNonNull(remote);
-        if (address.equals(remote)) {
+        if (address.getAddress().isLoopbackAddress() && address.getPort() == remote.getPort()) {
             return false;
         }
         controller.addCommand(() -> {
             try {
-                serverServer.initFusion(remote, selector, this);
+                serverServer.initFusion(remote, this::connectTo);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -230,27 +180,28 @@ public final class Server implements ClientToServerInterface, ServerToServerInte
         return true;
     }
 
+    void info() {
+        System.out.println(
+            "Server Information:\nName = "
+                + serverName + " (" + address + ")\n"
+                + "\n"
+                + serverServer.info()
+                + "\n" +
+                serverClient.info()
+        );
+    }
+
+    private SelectionKey connectTo(SocketChannel channel) {
+        try {
+            return channel.register(selector, SelectionKey.OP_CONNECT);
+        } catch (ClosedChannelException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {
         LOGGER.log(level, address + " : " + message);
         CloseableUtils.silentlyClose(closeable);
     }
 
-    private void onException(IOException e, SelectionKey key) {
-        Objects.requireNonNull(e);
-        Objects.requireNonNull(key);
-        LOGGER.log(Level.INFO, "Connection closed due to IOException", e);
-
-        var name = keyToName.remove(key);
-
-        var ctx = (Context) key.attachment();
-        if (ctx instanceof DefaultContext) {
-            CloseableUtils.silentlyClose(key.channel());
-        } else if (ctx instanceof LoggedClientContext) {
-            disconnectClient(name);
-        } else if (ctx instanceof FusedServerContext) {
-            CloseableUtils.silentlyClose(key.channel());
-        } else {
-            throw new AssertionError("Impossible state.");
-        }
-    }
 }

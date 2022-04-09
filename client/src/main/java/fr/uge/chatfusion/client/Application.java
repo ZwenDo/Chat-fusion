@@ -4,13 +4,13 @@ import fr.uge.chatfusion.core.Sizes;
 
 import java.io.IOException;
 
-public final class Application {
+final class Application {
     private Application() {
         throw new AssertionError("No instances.");
     }
 
     private static void usage() {
-        System.out.println("Usage : ChatFusionClient host port login");
+        System.out.println("Usage : ChatFusionClient <host> <port> <username>");
     }
 
     public static void main(String[] args) throws NumberFormatException, IOException {

@@ -29,6 +29,9 @@ allprojects {
         test {
             useJUnitPlatform()
         }
+        compileJava {
+            options.compilerArgs.add("-Xlint:unchecked")
+        }
     }
 }
 

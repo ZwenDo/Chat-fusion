@@ -2,10 +2,8 @@ package fr.uge.chatfusion.client;
 
 import java.util.Objects;
 import java.util.Scanner;
-import java.util.StringJoiner;
 
 final class ClientConsole implements Runnable {
-    private final Scanner scanner = new Scanner(System.in);
     private final Client client;
 
     ClientConsole(Client client) {
@@ -15,17 +13,21 @@ final class ClientConsole implements Runnable {
 
     @Override
     public void run() {
-         while (scanner.hasNext()) {
-            var input = scanner.nextLine();
+        try (var scanner = new Scanner(System.in)) {
+            while (scanner.hasNext()) {
+                var input = scanner.nextLine();
 
-            switch (input) {
-                case "SHUTDOWN" -> client.shutdown();
-                default -> processCommand(input);
+                if ("SHUTDOWN".equals(input)) {
+                    client.shutdown();
+                } else {
+                    processCommand(scanner, input);
+                }
             }
         }
+        client.shutdown();
     }
 
-    private void processCommand(String input) {
+    private void processCommand(Scanner scanner, String input) {
         if (input.startsWith("/")) {
             System.out.println("File sending not implemented yet");
         } else if (input.startsWith("@")) {

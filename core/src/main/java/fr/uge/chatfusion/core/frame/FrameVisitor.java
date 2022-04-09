@@ -1,48 +1,48 @@
 package fr.uge.chatfusion.core.frame;
 
-public interface FrameVisitor<C> {
+public interface FrameVisitor {
 
-    default void visit(Frame.AnonymousLogin anonymousLogin, C context) {
+    default void visit(Frame.AnonymousLogin anonymousLogin) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.PublicMessage publicMessage, C context) {
+    default void visit(Frame.PublicMessage publicMessage) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.FusionInit fusionInit, C context) {
+    default void visit(Frame.FusionInit fusionInit) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.LoginAccepted loginAccepted, C context) {
+    default void visit(Frame.LoginAccepted loginAccepted) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.LoginRefused loginRefused, C context) {
+    default void visit(Frame.LoginRefused loginRefused) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.FusionInitFwd fusionInitFwd, C context) {
+    default void visit(Frame.FusionInitFwd fusionInitFwd) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.FusionInitOk fusionInitOk, C context) {
+    default void visit(Frame.FusionInitOk fusionInitOk) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.FusionInitKo fusionInitKo, C context) {
+    default void visit(Frame.FusionInitKo fusionInitKo) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.FusionChangeLeader fusionChangeLeader, C context) {
+    default void visit(Frame.FusionChangeLeader fusionChangeLeader) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.FusionMerge fusionMerge, C context) {
+    default void visit(Frame.FusionMerge fusionMerge) {
         throw new UnsupportedOperationException();
     }
 
-    default void visit(Frame.FusionRequest fusionRequest, C context) {
+    default void visit(Frame.FusionRequest fusionRequest) {
         throw new UnsupportedOperationException();
     }
 }

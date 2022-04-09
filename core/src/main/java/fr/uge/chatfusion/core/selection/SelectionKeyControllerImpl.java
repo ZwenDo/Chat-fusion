@@ -1,7 +1,10 @@
 package fr.uge.chatfusion.core.selection;
 
 import fr.uge.chatfusion.core.BufferUtils;
-import fr.uge.chatfusion.core.reader.MultiFrameReader;
+import fr.uge.chatfusion.core.CloseableUtils;
+import fr.uge.chatfusion.core.frame.Frame;
+import fr.uge.chatfusion.core.frame.FrameVisitor;
+import fr.uge.chatfusion.core.reader.base.Reader;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,31 +26,19 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
     private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
     private final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
-    private MultiFrameReader reader;
-    private final Runnable onClose;
-    private final Runnable processIn;
+    private final Reader<Frame> reader = Frame.reader();
+    private Runnable onClose = () -> {};
+    private FrameVisitor visitor = new FrameVisitor() {};
     private boolean closing;
+    private boolean closed;
     private boolean connected;
 
-    public SelectionKeyControllerImpl(
-        SelectionKey key,
-        InetSocketAddress remoteAddress,
-        MultiFrameReader reader,
-        Runnable onClose,
-        Runnable processIn,
-        boolean isConnected
-    ) {
+    public SelectionKeyControllerImpl(SelectionKey key, InetSocketAddress remoteAddress, boolean isConnected) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(remoteAddress);
-        Objects.requireNonNull(reader);
-        Objects.requireNonNull(onClose);
-        Objects.requireNonNull(processIn);
         this.key = key;
         this.sc = (SocketChannel) key.channel();
         this.remoteAddress = remoteAddress;
-        this.reader = reader;
-        this.onClose = onClose;
-        this.processIn = processIn;
         this.connected = isConnected;
         updateInterestOps();
     }
@@ -55,11 +46,11 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     @Override
     public void doRead() throws IOException {
         if (sc.read(bufferIn) == -1) {
-            logInfoAndClose(sc.getRemoteAddress() + " Connection closed by client.");
+            logAndClose(Level.INFO, sc.getRemoteAddress() + " Connection closed by client.");
             return;
         }
 
-        processIn.run();
+        processIn();
         updateInterestOps();
     }
 
@@ -75,7 +66,7 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
 
     @Override
     public void doConnect() throws IOException {
-        if (!sc.finishConnect() || connected) return;
+        if (!sc.finishConnect() || connected || closed) return;
         connected = true;
         updateInterestOps();
     }
@@ -83,8 +74,8 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     @Override
     public void queueData(ByteBuffer data) {
         Objects.requireNonNull(data);
-        if (closing) {
-            throw new IllegalStateException("Connection is closing.");
+        if (closing || closed) {
+            throw new IllegalStateException("Connection is closing or closed.");
         }
 
         if (queue.isEmpty()) {
@@ -92,7 +83,7 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         }
 
         while (data.position() > 0) {
-            var dest = queue.peekLast();
+            var dest = queue.getLast();
             BufferUtils.transferTo(data, dest);
             if (!dest.hasRemaining()) {
                 queue.addLast(ByteBuffer.allocate(BUFFER_SIZE));
@@ -109,6 +100,27 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         updateInterestOps();
     }
 
+    @Override
+    public void close() {
+        CloseableUtils.silentlyClose(sc);
+        closed = true;
+        onClose.run();
+    }
+
+    @Override
+    public InetSocketAddress remoteAddress() {
+        return remoteAddress;
+    }
+
+    public void setVisitor(FrameVisitor visitor) {
+        Objects.requireNonNull(visitor);
+        this.visitor = visitor;
+    }
+
+    public void setOnClose(Runnable onClose) {
+        Objects.requireNonNull(onClose);
+        this.onClose = onClose;
+    }
 
     private void updateInterestOps() {
         if (!connected) {
@@ -127,11 +139,31 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         }
 
         if (op == 0) {
-            logInfoAndClose("No more interest ops. Closing connection.");
+            logAndClose(Level.INFO, "No more interest ops. Closing connection.");
             return;
         }
 
         key.interestOps(op);
+    }
+
+    private void processIn() {
+        while (true) {
+            try {
+                var status = reader.process(bufferIn);
+                if (status != Reader.ProcessStatus.DONE) {
+                    if (status == Reader.ProcessStatus.ERROR) {
+                        logAndClose(Level.SEVERE, "Malformed message packet. Closing connection.");
+                    }
+                    break;
+                }
+
+                reader.get().accept(visitor);
+                reader.reset();
+            } catch (IllegalStateException e) {
+                logAndClose(Level.SEVERE,"Error while reading. Closing connection...\n" + e.getMessage());
+                break;
+            }
+        }
     }
 
     private void processOut() {
@@ -145,21 +177,10 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         }
     }
 
-    private void logInfoAndClose(String message) {
-        LOGGER.log(Level.INFO, remoteAddress + " : " + message);
+    private void logAndClose(Level level, String message) {
+        LOGGER.log(level, remoteAddress + " : " + message);
+        CloseableUtils.silentlyClose(sc);
         onClose.run();
     }
 
-    public void setReader(MultiFrameReader reader) {
-        Objects.requireNonNull(reader);
-        this.reader = reader;
-    }
-
-    public MultiFrameReader reader() {
-        return reader;
-    }
-
-    public ByteBuffer bufferIn() {
-        return bufferIn;
-    }
 }

@@ -24,6 +24,14 @@ public final class BufferUtils {
         from.compact();
     }
 
+    public static ByteBuffer copy(ByteBuffer buffer) {
+        Objects.requireNonNull(buffer);
+        buffer.flip();
+        var newBuffer = ByteBuffer.allocate(buffer.remaining());
+        newBuffer.put(buffer);
+        return newBuffer;
+    }
+
     public static ByteBuffer encodeString(String string) {
         Objects.requireNonNull(string);
         var str = Charsets.DEFAULT_CHARSET.encode(string);

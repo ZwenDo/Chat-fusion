@@ -1,16 +1,16 @@
 package fr.uge.chatfusion.server;
 
+import fr.uge.chatfusion.core.BufferUtils;
 import fr.uge.chatfusion.core.CloseableUtils;
-import fr.uge.chatfusion.core.FrameBuilder;
-import fr.uge.chatfusion.core.FrameOpcodes;
 import fr.uge.chatfusion.core.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
-import fr.uge.chatfusion.server.context.LoggedClientContext;
-import fr.uge.chatfusion.server.context.DefaultContext;
+import fr.uge.chatfusion.core.selection.SelectionKeyController;
+import fr.uge.chatfusion.server.visitor.RemoteInfo;
+import fr.uge.chatfusion.server.visitor.UnknownRemoteInfo;
+import fr.uge.chatfusion.server.visitor.Visitors;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.logging.Level;
@@ -20,91 +20,50 @@ import java.util.stream.Collectors;
 final class ClientToServerController {
     private static final Logger LOGGER = Logger.getLogger(ClientToServerController.class.getName());
 
-    private final HashMap<String, LoggedClientContext> clients = new HashMap<>();
-    private final String name;
+    private final HashMap<String, SelectionKeyController> clients = new HashMap<>();
+    private final String serverName;
+    private final Server server;
 
-    public ClientToServerController(String name) {
-        Objects.requireNonNull(name);
-        this.name = name;
+    public ClientToServerController(String serverName, Server server) {
+        Objects.requireNonNull(serverName);
+        Objects.requireNonNull(server);
+        this.serverName = serverName;
+        this.server = server;
     }
 
-    public boolean tryToConnectAnonymously(String login, SelectionKey key) {
-        Objects.requireNonNull(login);
-        Objects.requireNonNull(key);
+    public void connectAnonymously(Frame.AnonymousLogin anonymousLogin, UnknownRemoteInfo infos) {
+        Objects.requireNonNull(anonymousLogin);
+        Objects.requireNonNull(infos);
 
-        var ctx = (DefaultContext) key.attachment();
-        if (!Sizes.checkUsernameSize(login)) {
-            logMessageAndClose(
-                Level.WARNING,
-                "Invalid username size (" + login + ")",
-                ctx.remoteAddress(),
-                ctx.socketChannel()
-            );
-            return false;
+        var username = anonymousLogin.username();
+        if (!checkLogin(anonymousLogin, infos)) {
+            return;
         }
 
-        if (clients.containsKey(login)) {
-            logMessageAndClose(
-                Level.WARNING,
-                "Username already connected (" + login + ")",
-                ctx.remoteAddress(),
-                ctx.socketChannel()
-            );
-            return false;
-        }
+        var controller = infos.controller();
+        clients.put(username, controller);
 
-        var client = ctx.asClientContext(login);
-        key.attach(client);
-        clients.put(login, client);
-        var data = new FrameBuilder(FrameOpcodes.LOGIN_ACCEPTED)
-            .addString(name)
-            .build();
-        client.queueData(data);
+        // changing the visitor
+        var userInfos = new RemoteInfo(username, infos.connection(), infos.address());
+        controller.setVisitor(Visitors.loggedClientVisitor(server, userInfos));
+        controller.setOnClose(() -> clients.remove(username));
 
-        return true;
+        // answer to the client
+        var data = Frame.LoginAccepted.buffer(serverName);
+        controller.queueData(data);
     }
 
-    public boolean sendPublicMessage(Frame.PublicMessage message) {
+    public void sendPublicMessage(Frame.PublicMessage message, RemoteInfo remoteInfo) {
         Objects.requireNonNull(message);
+        Objects.requireNonNull(remoteInfo);
 
-        if (!Sizes.checkMessageSize(message.message())) {
-            var ctx = clients.get(message.senderUsername());
-            if (ctx == null) {
-                LOGGER.log(
-                    Level.WARNING,
-                    "Message too long from: "
-                        + message.originServer()
-                        + "/" +message.senderUsername()
-                );
-            } else {
-                logMessageAndClose(Level.WARNING, "Message too long", ctx.remoteAddress(), ctx.socketChannel());
-            }
-            return false;
-        }
-
-        var builder = new FrameBuilder(FrameOpcodes.PUBLIC_MESSAGE)
-            .addString(message.originServer())
-            .addString(message.senderUsername())
-            .addString(message.message());
-        clients.values().forEach(client -> client.queueData(builder.build()));
-
-        return true;
-    }
-
-    public LoggedClientContext disconnectClient(String username) {
-        Objects.requireNonNull(username);
-
-        var ctx = clients.remove(username);
-        if (ctx == null) {
-            throw new IllegalArgumentException("Client not found: " + username);
-        }
-        CloseableUtils.silentlyClose(ctx.socketChannel());
-        return ctx;
-    }
-
-    private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {
-        LOGGER.log(level, address + " : " + message);
-        CloseableUtils.silentlyClose(closeable);
+        var data = Frame.PublicMessage.buffer(
+            message.originServer(),
+            message.senderUsername(),
+            message.message()
+        );
+        clients.values()
+            .forEach(client -> client.queueData(BufferUtils.copy(data)));
     }
 
     public String info() {
@@ -116,5 +75,35 @@ final class ClientToServerController {
             .map(e -> e.getKey() + " (" + e.getValue().remoteAddress() + ")")
             .collect(Collectors.joining("\n-"));
         return size + " connected client(s):\n-" + connectedList;
+    }
+
+    private boolean checkLogin(Frame.AnonymousLogin anonymousLogin, UnknownRemoteInfo infos) {
+        var username = anonymousLogin.username();
+        if (!Sizes.checkUsernameSize(username)) {
+            logMessageAndClose(
+                Level.WARNING,
+                "Invalid username size (" + username + ")",
+                infos.address(),
+                infos.connection()
+            );
+            return false;
+        }
+
+        if (clients.containsKey(username)) {
+            logMessageAndClose(
+                Level.WARNING,
+                "Username already connected (" + username + ")",
+                infos.address(),
+                infos.connection()
+            );
+            return false;
+        }
+
+        return true;
+    }
+
+    private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {
+        LOGGER.log(level, address + " : " + message);
+        CloseableUtils.silentlyClose(closeable);
     }
 }

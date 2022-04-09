@@ -1,5 +1,6 @@
 package fr.uge.chatfusion.client;
 
+import fr.uge.chatfusion.core.CloseableUtils;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 
 import java.io.IOException;
@@ -11,30 +12,28 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayDeque;
 import java.util.Objects;
-import java.util.function.Consumer;
 
 final class SocketChannelController {
     private final ArrayDeque<Runnable> commands = new ArrayDeque<>(1);
-    private final SocketChannel socketChannel;
-    private final InetSocketAddress address;
-    private final Selector selector;
+    private final Selector selector = Selector.open();
+    private final SocketChannel socketChannel = SocketChannel.open();
+    private final InetSocketAddress serverAddress;
 
-    public SocketChannelController(SocketChannel socketChannel, InetSocketAddress address, Selector selector) {
-        Objects.requireNonNull(socketChannel);
-        Objects.requireNonNull(address);
-        Objects.requireNonNull(selector);
-        this.socketChannel = socketChannel;
-        this.address = address;
-        this.selector = selector;
+
+    public SocketChannelController(
+        InetSocketAddress serverAddress
+    ) throws IOException {
+        Objects.requireNonNull(serverAddress);
+        this.serverAddress = serverAddress;
     }
 
-    public void launch(Client client, Consumer<UniqueContext> onCreation) throws IOException {
+    public SelectionKey createSelectionKey() throws IOException {
         socketChannel.configureBlocking(false);
-        socketChannel.connect(address);
-        var key = socketChannel.register(selector, SelectionKey.OP_CONNECT);
-        var ctx = new UniqueContext(client, key, address);
-        onCreation.accept(ctx);
-        key.attach(ctx);
+        return socketChannel.register(selector, SelectionKey.OP_CONNECT);
+    }
+
+    public void launch() throws IOException {
+        socketChannel.connect(serverAddress);
         while (!Thread.interrupted()) {
             try {
                 selector.select(this::treatKey);
@@ -78,5 +77,9 @@ final class SocketChannelController {
         } catch (IOException ioe) {
             throw new UncheckedIOException(ioe);
         }
+    }
+
+    public void shutdown() {
+        CloseableUtils.silentlyClose(selector);
     }
 }

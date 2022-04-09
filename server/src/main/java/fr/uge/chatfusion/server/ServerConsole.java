@@ -5,7 +5,6 @@ import java.util.Objects;
 import java.util.Scanner;
 
 final class ServerConsole implements Runnable {
-    private final Scanner scanner = new Scanner(System.in);
     private final Server server;
 
     public ServerConsole(Server server) {
@@ -15,23 +14,25 @@ final class ServerConsole implements Runnable {
 
     @Override
     public void run() {
-        while (scanner.hasNext()) {
-            var input = scanner.next();
+        try (var scanner = new Scanner(System.in)) {
+            while (scanner.hasNext()) {
+                var input = scanner.next();
 
-            switch (input) {
-                case "INFO" -> server.info();
-                case "SHUTDOWN" -> server.shutdown();
-                case "SHUTDOWNNOW" -> {
-                    server.shutdownNow();
-                    return;
+                switch (input) {
+                    case "INFO" -> server.info();
+                    case "SHUTDOWN" -> server.shutdown();
+                    case "SHUTDOWNNOW" -> {
+                        server.shutdownNow();
+                        return;
+                    }
+                    case "FUSION" -> fusion(scanner);
+                    default -> System.out.println("Unknown command: " + input);
                 }
-                case "FUSION" -> fusion();
-                default -> System.out.println("Unknown command: " + input);
             }
         }
     }
 
-    private void fusion() {
+    private void fusion(Scanner scanner) {
         if (!scanner.hasNext()) {
             System.out.println("Usage: FUSION <host> <port>");
             return;

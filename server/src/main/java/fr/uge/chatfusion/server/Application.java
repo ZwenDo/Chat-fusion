@@ -1,16 +1,14 @@
 package fr.uge.chatfusion.server;
 
-import fr.uge.chatfusion.core.frame.Frame;
-
 import java.io.IOException;
 
-public final class Application {
+final class Application {
     private Application() {
         throw new AssertionError("No instances.");
     }
 
     private static void usage() {
-        System.out.println("Usage : ChatFusionServer serverName port");
+        System.out.println("Usage : ChatFusionServer <server name> <port>");
     }
 
     public static void main(String[] args) {

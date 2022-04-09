@@ -1,22 +1,23 @@
 package fr.uge.chatfusion.server;
 
+import fr.uge.chatfusion.core.BufferUtils;
 import fr.uge.chatfusion.core.CloseableUtils;
-import fr.uge.chatfusion.core.FrameBuilder;
-import fr.uge.chatfusion.core.FrameOpcodes;
 import fr.uge.chatfusion.core.Sizes;
-import fr.uge.chatfusion.core.frame.*;
-import fr.uge.chatfusion.server.context.DefaultContext;
-import fr.uge.chatfusion.server.context.FusedServerContext;
+import fr.uge.chatfusion.core.frame.Frame;
+import fr.uge.chatfusion.core.selection.SelectionKeyController;
+import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
+import fr.uge.chatfusion.server.visitor.RemoteInfo;
+import fr.uge.chatfusion.server.visitor.UnknownRemoteInfo;
+import fr.uge.chatfusion.server.visitor.Visitors;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.*;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -24,43 +25,45 @@ import java.util.stream.Collectors;
 final class ServerToServerController {
     private static final Logger LOGGER = Logger.getLogger(ServerToServerController.class.getName());
 
-    private final InetSocketAddress address;
+    private HashMap<String, SelectionKeyController> members = new HashMap<>();
     private final String serverName;
-    private HashMap<String, FusedServerContext> fusedMembers = new HashMap<>();
-    private HashSet<String> futureMembers = new HashSet<>();
-    private FusedServerContext leader;
+    private final Server server;
+    private final InetSocketAddress address;
+    private final HashSet<String> futureMembers = new HashSet<>();
+    private ServerLeader leader;
     private boolean isFusing;
-    private final ArrayDeque<?> queuedFusions = new ArrayDeque<>();
 
 
-    public ServerToServerController(InetSocketAddress address, String serverName) {
+    public ServerToServerController(String serverName, Server server, InetSocketAddress address) {
         Objects.requireNonNull(address);
+        Objects.requireNonNull(server);
         Objects.requireNonNull(serverName);
         this.address = address;
+        this.server = server;
         this.serverName = serverName;
     }
 
-    public boolean tryFusion(Frame.FusionInit fusionInit, SelectionKey key, Consumer<SelectionKey> onLeadLost) {
+    public void tryFusion(Frame.FusionInit fusionInit, UnknownRemoteInfo infos) {
         Objects.requireNonNull(fusionInit);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(onLeadLost);
+        Objects.requireNonNull(infos);
+        // TODO check isFusing
 
-        var ctx = (DefaultContext) key.attachment();
+        var ctx = infos.controller();
         // check if server is the leader
         if (leader != null) {
-            var data = new FrameBuilder(FrameOpcodes.FUSION_INIT_FWD).build();
+            var data = Frame.FusionInitFwd.buffer(leader.infos().address());
             ctx.queueData(data);
             ctx.closeWhenAllSent();
-            return false;
+            return;
         }
 
         // check if provided information are valid and compatible
-        if (!checkFusion(fusionInit.serverName(), fusionInit.serverAddress(), fusionInit.members(), key)) {
-            return false;
+        if (!checkFusion(fusionInit.serverName(), fusionInit.serverAddress(), fusionInit.members(), infos)) {
+            return;
         }
 
         // accept the fusion
-        var data = createFusionFrame(FrameOpcodes.FUSION_INIT_OK);
+        var data = Frame.FusionInitOk.buffer(serverName, address, new ArrayList<>(members.keySet()));
         ctx.queueData(data);
 
         // proceed to the fusion
@@ -73,56 +76,76 @@ final class ServerToServerController {
                 + ")"
         );
         isFusing = true;
-        fuse(fusionInit.serverName(), fusionInit.members(), fusionInit.serverAddress(), ctx, onLeadLost);
-        return true;
+        fuse(fusionInit.serverName(), fusionInit.members(), fusionInit.serverAddress(), infos);
     }
 
-    public boolean mergeFusion(Frame.FusionMerge fusionMerge, SelectionKey key) {
+    public void acceptFusion(Frame.FusionInitOk fusionInitOk, UnknownRemoteInfo infos) {
+        Objects.requireNonNull(fusionInitOk);
+        Objects.requireNonNull(infos);
+        if (!checkFusion(fusionInitOk.serverName(), fusionInitOk.serverAddress(), fusionInitOk.members(), infos)) {
+            return;
+        }
+
+        LOGGER.log(Level.INFO,
+            "Fusion accepted by distant server "
+                + fusionInitOk.serverName()
+                + "("
+                + fusionInitOk.serverAddress()
+                + ")"
+        );
+        fuse(fusionInitOk.serverName(), fusionInitOk.members(), fusionInitOk.serverAddress(), infos);
+    }
+
+    public void fusionMerge(Frame.FusionMerge fusionMerge, UnknownRemoteInfo infos) {
         Objects.requireNonNull(fusionMerge);
-        var ctx = (DefaultContext) key.attachment();
+        Objects.requireNonNull(infos);
 
         var name = fusionMerge.name();
         if (!futureMembers.remove(name)) {
             logMessageAndClose(
                 Level.SEVERE,
                 "Wrong serverName. Closing connection...",
-                ctx.remoteAddress(),
-                ctx.socketChannel()
+                infos.address(),
+                infos.connection()
+            );
+        }
+        var ctx = infos.controller();
+        var serverInfos = new RemoteInfo(fusionMerge.name(), infos.connection(), infos.address());
+        ctx.setVisitor(Visitors.fusedServerVisitor(server, serverInfos));
+        members.put(name, infos.controller());
+    }
+
+    private boolean checkFusion(
+        String remoteName,
+        InetSocketAddress leaderAddress,
+        List<String> remoteMembers,
+        UnknownRemoteInfo infos
+    ) {
+        // checking that requests comes from the leader
+        if (!leaderAddress.equals(infos.address())) {
+            logMessageAndClose(
+                Level.SEVERE,
+                "Wrong leader address. Closing connection...",
+                infos.address(),
+                infos.connection()
             );
             return false;
         }
-        fusedMembers.put(name, ctx.asServerContext(name));
-        return true;
-    }
-
-    public boolean checkFusion(
-        String remoteName,
-        InetSocketAddress remoteAddress,
-        List<ServerInfo> members,
-        SelectionKey key
-    ) {
-        Objects.requireNonNull(remoteName);
-        Objects.requireNonNull(remoteAddress);
-        Objects.requireNonNull(members);
-        Objects.requireNonNull(key);
 
         // checking leader's name
-        if (!Sizes.checkServerNameSize(remoteName) || this.serverName.equals(remoteName)) {
+        if (!Sizes.checkServerNameSize(remoteName) || serverName.equals(remoteName)) {
             logMessageAndClose(
                 Level.SEVERE,
                 "Invalid leader serverName (" + remoteName + "). Closing connection...",
-                remoteAddress,
-                key.channel()
+                infos.address(),
+                infos.connection()
             );
             return false;
         }
 
         // checking members' names
-        var invalidServer = members.stream()
-            .filter(s -> {
-                var name = s.name();
-                return this.serverName.equals(name) && !Sizes.checkServerNameSize(name) && !fusedMembers.containsKey(name);
-            })
+        var invalidServer = remoteMembers.stream()
+            .filter(s -> !(serverName.equals(s) || Sizes.checkServerNameSize(s) || !members.containsKey(s)))
             .findAny();
         if (invalidServer.isPresent()) {
             logMessageAndClose(
@@ -132,8 +155,8 @@ final class ServerToServerController {
                     + ") serverName ("
                     + invalidServer.get()
                     + "). Closing connection...",
-                remoteAddress,
-                key.channel()
+                infos.address(),
+                infos.connection()
             );
             return false;
         }
@@ -141,79 +164,57 @@ final class ServerToServerController {
         return true;
     }
 
-    public void fuse(
+
+    private void fuse(
         String remoteName,
-        List<ServerInfo> members,
+        List<String> remoteMembers,
         InetSocketAddress remoteAddress,
-        DefaultContext ctx,
-        Consumer<SelectionKey> onLeadLost
+        UnknownRemoteInfo infos
     ) {
-        Objects.requireNonNull(remoteName);
-        Objects.requireNonNull(members);
-        Objects.requireNonNull(remoteAddress);
-        Objects.requireNonNull(ctx);
-        Objects.requireNonNull(onLeadLost);
         if (!isFusing) {
             throw new IllegalStateException("Fusion is not in progress");
         }
 
-        var other = ctx.asServerContext(remoteName);
-        ctx.key().attach(other);
+        var other = infos.controller();
+        var otherInfos = new RemoteInfo(remoteName, infos.connection(), remoteAddress);
+        other.setVisitor(Visitors.fusedServerVisitor(server, otherInfos));
 
         var stillLeader = serverName.compareTo(remoteName) < 0;
         if (stillLeader) {
             LOGGER.log(Level.INFO, "Still leader");
-            fusedMembers.put(remoteName, other);
-            members.forEach(m -> futureMembers.add(m.name()));
+            members.put(remoteName, other);
+            futureMembers.addAll(remoteMembers);
             isFusing = false;
             return;
         }
 
         LOGGER.log(Level.INFO, remoteName + "(" + remoteAddress + ") is the new leader");
-        leader = other;
+        leader = new ServerLeader(other, otherInfos);
 
-        var builder = new FrameBuilder(FrameOpcodes.FUSION_CHANGE_LEADER)
-            .addString(other.serverName())
-            .addAddress(remoteAddress);
-        fusedMembers.values().forEach(c -> {
-            onLeadLost.accept(c.key());
-            c.queueData(builder.build());
+        var buffer = Frame.FusionChangeLeader.buffer(remoteName, remoteAddress);
+        this.members.values().forEach(c -> {
+            c.queueData(buffer);
             c.closeWhenAllSent();
         });
-        fusedMembers = new HashMap<>();
+        this.members = new HashMap<>();
         isFusing = false;
     }
 
-    public ByteBuffer createFusionFrame(byte opcode) {
-        var infos = fusedMembers.entrySet()
-            .stream()
-            .map(k -> new ServerInfo(k.getKey(), k.getValue().remoteAddress()))
-            .toList();
-        return new FrameBuilder(opcode)
-            .addString(serverName)
-            .addAddress(address)
-            .addInfoList(infos)
-            .build();
-    }
-
-    private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {
-        LOGGER.log(level, address + " : " + message);
-        CloseableUtils.silentlyClose(closeable);
-    }
-
-    public void sendToAllExcept(FrameBuilder data, String originServer) {
+    public void sendToAllExcept(ByteBuffer data, String originServer) {
         Objects.requireNonNull(data);
         Objects.requireNonNull(originServer);
-        fusedMembers.forEach((key, value) -> {
+        members.forEach((key, value) -> {
             if (originServer.equals(key)) return;
-            value.queueData(data.build());
+            value.queueData(BufferUtils.copy(data));
         });
     }
 
-    public void initFusion(InetSocketAddress remote, Selector selector, Server server) throws IOException {
+    public void initFusion(
+        InetSocketAddress remote,
+        Function<SocketChannel, SelectionKey> factory
+    ) throws IOException {
         Objects.requireNonNull(remote);
-        Objects.requireNonNull(selector);
-        Objects.requireNonNull(server);
+        Objects.requireNonNull(factory);
         if (isFusing) {
             LOGGER.log(Level.WARNING, "Already fusing, ignoring..."); // TODO requeue the request
             return;
@@ -222,79 +223,119 @@ final class ServerToServerController {
 
         if (leader != null) {
             LOGGER.log(Level.INFO, "Forwarding fusion request to leader");
-            var data = new FrameBuilder(FrameOpcodes.FUSION_REQUEST)
-                .addAddress(remote)
-                .build();
-            leader.queueData(data);
+            var data = Frame.FusionRequest.buffer(remote);
+            leader.controller().queueData(data);
         } else {
             var sc = SocketChannel.open();
             sc.configureBlocking(false);
             sc.connect(remote);
-            var key = sc.register(selector, SelectionKey.OP_CONNECT);
-            var ctx = new DefaultContext(server, key, remote, false);
+            var key = factory.apply(sc);
+            var ctx = new SelectionKeyControllerImpl(key, remote, false);
             key.attach(ctx);
 
-            var data = createFusionFrame(FrameOpcodes.FUSION_INIT);
+            var data = Frame.FusionInit.buffer(serverName, address, new ArrayList<>(members.keySet()));
             ctx.queueData(data);
         }
     }
 
-    public FusedServerContext leader() {
-        return leader;
-    }
-
     public String info() {
-        var size = fusedMembers.size();
+        var leaderInfo = "Leader = " + (
+            leader != null
+                ? leader.infos().name() + " (" + leader.infos().address() + ")\n"
+                : "self\n");
+
+        var size = members.size();
         if (size == 0) {
-            return size + " fused member.\n";
+            return leaderInfo + size + " fused member.\n";
         }
-        var connectedList = fusedMembers.entrySet().stream()
+        var connectedList = members.entrySet().stream()
             .map(e -> e.getKey() + " (" + e.getValue().remoteAddress() + ")")
             .collect(Collectors.joining("\n-"));
-        return size + " fused member(s):\n-" + connectedList;
+        return leaderInfo + size + " fused member(s):\n-" + connectedList;
     }
 
     public void changeLeader(
         Frame.FusionChangeLeader newLeader,
-        SelectionKey key,
-        Selector selector,
-        Server server
+        RemoteInfo infos,
+        Function<SocketChannel, SelectionKey> factory
     ) throws IOException {
         Objects.requireNonNull(newLeader);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(selector);
-        Objects.requireNonNull(server);
-        if (!Objects.equals(leader, key.attachment())) {
-            logMessageAndClose(Level.SEVERE, "Change leader without being leader", address, key.channel());
+        Objects.requireNonNull(infos);
+        Objects.requireNonNull(factory);
+        if (leader == null || !leader.infos().address().equals(infos.address())) {
+            logMessageAndClose(Level.SEVERE, "Change leader without being leader", address, infos.connection());
             return;
         }
 
-        LOGGER.log(Level.INFO, "Change leader to " + newLeader.leaderName() + "(" + newLeader.leaderAddress() + ")");
+        LOGGER.log(
+            Level.INFO,
+            "Change leader to " + newLeader.leaderName() + "(" + newLeader.leaderAddress() + ")"
+        );
+
         var sc = SocketChannel.open();
         sc.configureBlocking(false);
         sc.connect(newLeader.leaderAddress());
-        var newLeaderKey = sc.register(selector, SelectionKey.OP_CONNECT);
-        var ctx = new FusedServerContext(
-            server,
-            newLeader.leaderName(),
-            newLeaderKey,
-            newLeader.leaderAddress(),
-            false
-        );
-        newLeaderKey.attach(ctx);
-        leader = ctx;
+        var key = factory.apply(sc);
 
-        var data = new FrameBuilder(FrameOpcodes.FUSION_MERGE)
-            .addString(serverName)
-            .build();
+        // creating the context and setting it as leader
+        var ctx = new SelectionKeyControllerImpl(key, newLeader.leaderAddress(), false);
+        var leaderInfos = new RemoteInfo(newLeader.leaderName(), sc, newLeader.leaderAddress());
+        ctx.setVisitor(Visitors.fusedServerVisitor(server, leaderInfos));
+        key.attach(ctx);
+        leader = new ServerLeader(ctx, leaderInfos);
+
+        var data = Frame.FusionMerge.buffer(serverName);
         ctx.queueData(data);
     }
 
-    public void rejectFusion(Frame.FusionInitKo fusionInitKo, SelectionKey key, InetSocketAddress address) {
+    public void rejectFusion(Frame.FusionInitKo fusionInitKo, UnknownRemoteInfo infos) {
         Objects.requireNonNull(fusionInitKo);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(address);
-        LOGGER.log(Level.INFO, "Reject fusion request from " + address);
+        Objects.requireNonNull(infos);
+        logMessageAndClose(
+            Level.INFO,
+            "Reject fusion request from " + infos.address(),
+            infos.address(),
+            infos.connection()
+        );
         isFusing = false;
+    }
+
+    public boolean forwardPublicMessage(Frame.PublicMessage message, RemoteInfo infos) {
+        Objects.requireNonNull(message);
+        Objects.requireNonNull(infos);
+        if (!leader.infos().name().equals(message.originServer())) {
+            logMessageAndClose(
+                Level.WARNING,
+                "Received public message from "
+                    + message.originServer()
+                    + " but leader is "
+                    + leader.infos().name(),
+                infos.address(),
+                infos.connection()
+            );
+            return false;
+        }
+
+        var data = Frame.PublicMessage.buffer(
+            message.originServer(),
+            message.senderUsername(),
+            message.message()
+        );
+
+        if (leader == null) {
+            sendToAllExcept(data, message.originServer());
+        } else {
+            leader.controller().queueData(data);
+        }
+        return true;
+    }
+
+    public boolean isLeader() {
+        return leader == null;
+    }
+
+    private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {
+        LOGGER.log(level, address + " : " + message);
+        CloseableUtils.silentlyClose(closeable);
     }
 }

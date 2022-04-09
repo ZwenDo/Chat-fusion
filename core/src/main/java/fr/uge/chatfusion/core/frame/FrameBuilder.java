@@ -1,13 +1,13 @@
-package fr.uge.chatfusion.core;
+package fr.uge.chatfusion.core.frame;
 
-import fr.uge.chatfusion.core.frame.ServerInfo;
+import fr.uge.chatfusion.core.BufferUtils;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 
-public final class FrameBuilder {
+final class FrameBuilder {
     private ByteBuffer buffer = ByteBuffer.allocate(1_024);
 
     public FrameBuilder(byte opcode) {
@@ -39,16 +39,6 @@ public final class FrameBuilder {
         buffer.put((byte) inet.length);
         buffer.put(inet);
         buffer.putInt(address.getPort());
-        return this;
-    }
-
-    public FrameBuilder addInfoList(List<ServerInfo> infos) {
-        Objects.requireNonNull(infos);
-        buffer.putInt(infos.size());
-        infos.forEach(i -> {
-            addString(i.name());
-            addAddress(i.address());
-        });
         return this;
     }
 
