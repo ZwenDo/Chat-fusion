@@ -1,5 +1,6 @@
 package fr.uge.chatfusion.core.frame;
 
+import fr.uge.chatfusion.core.Sizes;
 import fr.uge.chatfusion.core.reader.Readers;
 import fr.uge.chatfusion.core.reader.base.BaseReaders;
 import fr.uge.chatfusion.core.reader.base.Reader;
@@ -41,6 +42,7 @@ final class FrameReader implements Reader<Frame> {
                 }
                 return status;
             }
+            state = State.WAITING_DATA;
         }
 
         if (state == State.WAITING_DATA) {
@@ -65,7 +67,6 @@ final class FrameReader implements Reader<Frame> {
 
         currentReader = readers.apply(opcodeReader.get());
         opcodeReader.reset();
-        state = State.WAITING_DATA;
         return ProcessStatus.DONE;
     }
 
@@ -85,13 +86,14 @@ final class FrameReader implements Reader<Frame> {
 
     private static Function<Byte, Reader<Frame>> opcodeToReader(Reader<Byte> byteReader) {
         var parts = parts(byteReader);
-        var readers = Arrays.stream(FrameOpcodes.values())
+        @SuppressWarnings("unchecked")
+        var readers = (Reader<Frame>[]) Arrays.stream(FrameOpcode.values())
             .map(o -> o.reader(parts))
-            .<Reader<Frame>>toArray(Reader[]::new);
+            .toArray(Reader[]::new);
 
         return b -> {
             try {
-                return readers[FrameOpcodes.get(b).ordinal()];
+                return readers[FrameOpcode.get(b).ordinal()];
             } catch (IllegalArgumentException e) {
                 throw new IllegalStateException("Unknown opcode: " + b);
             }
@@ -100,8 +102,9 @@ final class FrameReader implements Reader<Frame> {
 
     private static FrameReaderPart parts(Reader<Byte> byteReader) {
         var intReader = BaseReaders.intReader();
-        var stringReader = BaseReaders.stringReader();
+        var stringReader = BaseReaders.stringReader(Sizes.MAX_MESSAGE_SIZE);
         var stringListReader = Readers.<List<String>, String>sizedReader(
+            intReader,
             stringReader,
             ArrayList::new,
             (i, v, l) -> {
@@ -110,7 +113,8 @@ final class FrameReader implements Reader<Frame> {
             },
             List::copyOf
         );
-        var byteArrayReader = Readers.sizedReader(
+        var addressArrayReader = Readers.sizedReader(
+            byteReader,
             byteReader,
             byte[]::new,
             (i, v, a) -> {
@@ -127,9 +131,9 @@ final class FrameReader implements Reader<Frame> {
                     throw new UncheckedIOException(e);
                 }
             },
-            byteArrayReader,
+            addressArrayReader,
             intReader
         );
-        return new FrameReaderPart(intReader, stringReader, stringListReader, byteArrayReader, addressReader);
+        return new FrameReaderPart(intReader, stringReader, stringListReader, addressReader);
     }
 }

@@ -32,7 +32,7 @@ final class ObjectReader<E> implements Reader<E> {
     public ProcessStatus process(ByteBuffer buffer) {
         Objects.requireNonNull(buffer);
         if (state == State.DONE || state == State.ERROR) {
-            throw new IllegalStateException("Reader is already done or in error state");
+            throw new IllegalStateException("Reader is already done or in error state.");
         }
 
         while (index < readers.length) {

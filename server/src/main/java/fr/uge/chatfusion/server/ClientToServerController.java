@@ -5,7 +5,7 @@ import fr.uge.chatfusion.core.CloseableUtils;
 import fr.uge.chatfusion.core.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
-import fr.uge.chatfusion.server.visitor.RemoteInfo;
+import fr.uge.chatfusion.server.visitor.IdentifiedRemoteInfo;
 import fr.uge.chatfusion.server.visitor.UnknownRemoteInfo;
 import fr.uge.chatfusion.server.visitor.Visitors;
 
@@ -44,7 +44,7 @@ final class ClientToServerController {
         clients.put(username, controller);
 
         // changing the visitor
-        var userInfos = new RemoteInfo(username, infos.connection(), infos.address());
+        var userInfos = new IdentifiedRemoteInfo(username, infos.connection(), infos.address());
         controller.setVisitor(Visitors.loggedClientVisitor(server, userInfos));
         controller.setOnClose(() -> clients.remove(username));
 
@@ -53,7 +53,7 @@ final class ClientToServerController {
         controller.queueData(data);
     }
 
-    public void sendPublicMessage(Frame.PublicMessage message, RemoteInfo remoteInfo) {
+    public void sendPublicMessage(Frame.PublicMessage message, IdentifiedRemoteInfo remoteInfo) {
         Objects.requireNonNull(message);
         Objects.requireNonNull(remoteInfo);
 
@@ -90,12 +90,10 @@ final class ClientToServerController {
         }
 
         if (clients.containsKey(username)) {
-            logMessageAndClose(
-                Level.WARNING,
-                "Username already connected (" + username + ")",
-                infos.address(),
-                infos.connection()
-            );
+            LOGGER.log(Level.WARNING, "Username already used (" + username + ")");
+            var controller = infos.controller();
+            controller.queueData(Frame.LoginRefused.buffer());
+            controller.closeWhenAllSent();
             return false;
         }
 

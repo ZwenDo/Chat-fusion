@@ -6,10 +6,10 @@ import fr.uge.chatfusion.core.frame.FrameVisitor;
 import java.util.Objects;
 
 final class DefaultVisitor implements FrameVisitor {
-    private final UnknownToServerInterface server;
+    private final DefaultToServerInterface server;
     private final UnknownRemoteInfo infos;
 
-    public DefaultVisitor(UnknownToServerInterface server, UnknownRemoteInfo infos) {
+    public DefaultVisitor(DefaultToServerInterface server, UnknownRemoteInfo infos) {
         Objects.requireNonNull(server);
         Objects.requireNonNull(infos);
         this.server = server;
@@ -32,18 +32,6 @@ final class DefaultVisitor implements FrameVisitor {
     public void visit(Frame.FusionMerge fusionMerge) {
         Objects.requireNonNull(fusionMerge);
         server.fusionMerge(fusionMerge, infos);
-    }
-
-    @Override
-    public void visit(Frame.FusionInitOk fusionInitOk) {
-        Objects.requireNonNull(fusionInitOk);
-        server.fusionAccepted(fusionInitOk, infos);
-    }
-
-    @Override
-    public void visit(Frame.FusionInitKo fusionInitKo) {
-        Objects.requireNonNull(fusionInitKo);
-        server.fusionRejected(fusionInitKo, infos);
     }
 
 }

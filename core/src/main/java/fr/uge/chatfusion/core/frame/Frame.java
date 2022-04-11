@@ -25,7 +25,7 @@ public sealed interface Frame {
 
         public static ByteBuffer buffer(String username) {
             Objects.requireNonNull(username);
-            return new FrameBuilder(FrameOpcodes.ANONYMOUS_LOGIN.value)
+            return new FrameBuilder(FrameOpcode.ANONYMOUS_LOGIN)
                 .addString(username)
                 .build();
         }
@@ -49,7 +49,7 @@ public sealed interface Frame {
 
         public static ByteBuffer buffer(String serverName) {
             Objects.requireNonNull(serverName);
-            return new FrameBuilder(FrameOpcodes.LOGIN_ACCEPTED.value)
+            return new FrameBuilder(FrameOpcode.LOGIN_ACCEPTED)
                 .addString(serverName)
                 .build();
         }
@@ -68,7 +68,7 @@ public sealed interface Frame {
         }
 
         public static ByteBuffer buffer() {
-            return new FrameBuilder(FrameOpcodes.LOGIN_REFUSED.value).build();
+            return new FrameBuilder(FrameOpcode.LOGIN_REFUSED).build();
         }
 
         static Reader<Frame.LoginRefused> reader(FrameReaderPart parts) {
@@ -98,7 +98,7 @@ public sealed interface Frame {
             Objects.requireNonNull(serverName);
             Objects.requireNonNull(serverAddress);
             Objects.requireNonNull(members);
-            return new FrameBuilder(FrameOpcodes.FUSION_INIT.value)
+            return new FrameBuilder(FrameOpcode.FUSION_INIT)
                 .addString(serverName)
                 .addAddress(serverAddress)
                 .addStringList(members)
@@ -136,7 +136,7 @@ public sealed interface Frame {
             Objects.requireNonNull(serverName);
             Objects.requireNonNull(serverAddress);
             Objects.requireNonNull(members);
-            return new FrameBuilder(FrameOpcodes.FUSION_INIT_OK.value)
+            return new FrameBuilder(FrameOpcode.FUSION_INIT_OK)
                 .addString(serverName)
                 .addAddress(serverAddress)
                 .addStringList(members)
@@ -162,7 +162,7 @@ public sealed interface Frame {
         }
 
         public static ByteBuffer buffer() {
-            return new FrameBuilder(FrameOpcodes.FUSION_INIT_KO.value).build();
+            return new FrameBuilder(FrameOpcode.FUSION_INIT_KO).build();
         }
 
         static Reader<Frame.FusionInitKo> reader(FrameReaderPart parts) {
@@ -184,14 +184,14 @@ public sealed interface Frame {
 
         public static ByteBuffer buffer(InetSocketAddress leaderAddress) {
             Objects.requireNonNull(leaderAddress);
-            return new FrameBuilder(FrameOpcodes.FUSION_INIT_FWD.value)
+            return new FrameBuilder(FrameOpcode.FUSION_INIT_FWD)
                 .addAddress(leaderAddress)
                 .build();
         }
 
         static Reader<Frame.FusionInitFwd> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(c -> new Frame.FusionInitFwd(c.next()), parts.string());
+            return Readers.objectReader(c -> new Frame.FusionInitFwd(c.next()), parts.address());
         }
     }
 
@@ -208,7 +208,7 @@ public sealed interface Frame {
 
         public static ByteBuffer buffer(InetSocketAddress remote) {
             Objects.requireNonNull(remote);
-            return new FrameBuilder(FrameOpcodes.FUSION_REQUEST.value)
+            return new FrameBuilder(FrameOpcode.FUSION_REQUEST)
                 .addAddress(remote)
                 .build();
         }
@@ -234,7 +234,7 @@ public sealed interface Frame {
         public static ByteBuffer buffer(String leaderName, InetSocketAddress leaderAddress) {
             Objects.requireNonNull(leaderName);
             Objects.requireNonNull(leaderAddress);
-            return new FrameBuilder(FrameOpcodes.FUSION_CHANGE_LEADER.value)
+            return new FrameBuilder(FrameOpcode.FUSION_CHANGE_LEADER)
                 .addString(leaderName)
                 .addAddress(leaderAddress)
                 .build();
@@ -263,7 +263,7 @@ public sealed interface Frame {
 
         public static ByteBuffer buffer(String name) {
             Objects.requireNonNull(name);
-            return new FrameBuilder(FrameOpcodes.FUSION_MERGE.value)
+            return new FrameBuilder(FrameOpcode.FUSION_MERGE)
                 .addString(name)
                 .build();
         }
@@ -293,7 +293,7 @@ public sealed interface Frame {
             Objects.requireNonNull(originServer);
             Objects.requireNonNull(senderUsername);
             Objects.requireNonNull(message);
-            return new FrameBuilder(FrameOpcodes.PUBLIC_MESSAGE.value)
+            return new FrameBuilder(FrameOpcode.PUBLIC_MESSAGE)
                 .addString(originServer)
                 .addString(senderUsername)
                 .addString(message)

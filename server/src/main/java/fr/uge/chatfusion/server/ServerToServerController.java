@@ -6,7 +6,7 @@ import fr.uge.chatfusion.core.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
-import fr.uge.chatfusion.server.visitor.RemoteInfo;
+import fr.uge.chatfusion.server.visitor.IdentifiedRemoteInfo;
 import fr.uge.chatfusion.server.visitor.UnknownRemoteInfo;
 import fr.uge.chatfusion.server.visitor.Visitors;
 
@@ -26,6 +26,7 @@ final class ServerToServerController {
     private static final Logger LOGGER = Logger.getLogger(ServerToServerController.class.getName());
 
     private HashMap<String, SelectionKeyController> members = new HashMap<>();
+    private final HashSet<InetSocketAddress> addresses = new HashSet<>();
     private final String serverName;
     private final Server server;
     private final InetSocketAddress address;
@@ -51,6 +52,7 @@ final class ServerToServerController {
         var ctx = infos.controller();
         // check if server is the leader
         if (leader != null) {
+            LOGGER.log(Level.INFO, "Server is not the leader. Sending leader address...");
             var data = Frame.FusionInitFwd.buffer(leader.infos().address());
             ctx.queueData(data);
             ctx.closeWhenAllSent();
@@ -58,7 +60,7 @@ final class ServerToServerController {
         }
 
         // check if provided information are valid and compatible
-        if (!checkFusion(fusionInit.serverName(), fusionInit.serverAddress(), fusionInit.members(), infos)) {
+        if (!checkFusion(fusionInit.serverName(), fusionInit.members(), infos)) {
             return;
         }
 
@@ -82,7 +84,7 @@ final class ServerToServerController {
     public void acceptFusion(Frame.FusionInitOk fusionInitOk, UnknownRemoteInfo infos) {
         Objects.requireNonNull(fusionInitOk);
         Objects.requireNonNull(infos);
-        if (!checkFusion(fusionInitOk.serverName(), fusionInitOk.serverAddress(), fusionInitOk.members(), infos)) {
+        if (!checkFusion(fusionInitOk.serverName(), fusionInitOk.members(), infos)) {
             return;
         }
 
@@ -110,28 +112,16 @@ final class ServerToServerController {
             );
         }
         var ctx = infos.controller();
-        var serverInfos = new RemoteInfo(fusionMerge.name(), infos.connection(), infos.address());
+        var serverInfos = new IdentifiedRemoteInfo(fusionMerge.name(), infos.connection(), infos.address());
         ctx.setVisitor(Visitors.fusedServerVisitor(server, serverInfos));
         members.put(name, infos.controller());
     }
 
     private boolean checkFusion(
         String remoteName,
-        InetSocketAddress leaderAddress,
         List<String> remoteMembers,
         UnknownRemoteInfo infos
     ) {
-        // checking that requests comes from the leader
-        if (!leaderAddress.equals(infos.address())) {
-            logMessageAndClose(
-                Level.SEVERE,
-                "Wrong leader address. Closing connection...",
-                infos.address(),
-                infos.connection()
-            );
-            return false;
-        }
-
         // checking leader's name
         if (!Sizes.checkServerNameSize(remoteName) || serverName.equals(remoteName)) {
             logMessageAndClose(
@@ -176,7 +166,7 @@ final class ServerToServerController {
         }
 
         var other = infos.controller();
-        var otherInfos = new RemoteInfo(remoteName, infos.connection(), remoteAddress);
+        var otherInfos = new IdentifiedRemoteInfo(remoteName, infos.connection(), remoteAddress);
         other.setVisitor(Visitors.fusedServerVisitor(server, otherInfos));
 
         var stillLeader = serverName.compareTo(remoteName) < 0;
@@ -226,11 +216,18 @@ final class ServerToServerController {
             var data = Frame.FusionRequest.buffer(remote);
             leader.controller().queueData(data);
         } else {
+            LOGGER.log(Level.INFO, "Sending fusion request...");
             var sc = SocketChannel.open();
             sc.configureBlocking(false);
             sc.connect(remote);
             var key = factory.apply(sc);
-            var ctx = new SelectionKeyControllerImpl(key, remote, false);
+            var ctx = new SelectionKeyControllerImpl(key, remote, false, true);
+            var infos = new UnknownRemoteInfo(sc, remote, ctx);
+            ctx.setVisitor(Visitors.pendingFusionVisitor(server, infos));
+            ctx.setOnClose(() -> {
+                LOGGER.log(Level.SEVERE, "Failed to connect to leader");
+                isFusing = false;
+            });
             key.attach(ctx);
 
             var data = Frame.FusionInit.buffer(serverName, address, new ArrayList<>(members.keySet()));
@@ -256,7 +253,7 @@ final class ServerToServerController {
 
     public void changeLeader(
         Frame.FusionChangeLeader newLeader,
-        RemoteInfo infos,
+        IdentifiedRemoteInfo infos,
         Function<SocketChannel, SelectionKey> factory
     ) throws IOException {
         Objects.requireNonNull(newLeader);
@@ -278,8 +275,8 @@ final class ServerToServerController {
         var key = factory.apply(sc);
 
         // creating the context and setting it as leader
-        var ctx = new SelectionKeyControllerImpl(key, newLeader.leaderAddress(), false);
-        var leaderInfos = new RemoteInfo(newLeader.leaderName(), sc, newLeader.leaderAddress());
+        var ctx = new SelectionKeyControllerImpl(key, newLeader.leaderAddress(), false, true);
+        var leaderInfos = new IdentifiedRemoteInfo(newLeader.leaderName(), sc, newLeader.leaderAddress());
         ctx.setVisitor(Visitors.fusedServerVisitor(server, leaderInfos));
         key.attach(ctx);
         leader = new ServerLeader(ctx, leaderInfos);
@@ -300,10 +297,14 @@ final class ServerToServerController {
         isFusing = false;
     }
 
-    public boolean forwardPublicMessage(Frame.PublicMessage message, RemoteInfo infos) {
+    public boolean tryForwardPublicMessage(Frame.PublicMessage message, IdentifiedRemoteInfo infos) {
         Objects.requireNonNull(message);
         Objects.requireNonNull(infos);
-        if (!leader.infos().name().equals(message.originServer())) {
+        if (
+            leader != null
+                && !leader.infos().name().equals(message.originServer())
+                && !serverName.equals(message.originServer())
+        ) {
             logMessageAndClose(
                 Level.WARNING,
                 "Received public message from "
@@ -314,6 +315,10 @@ final class ServerToServerController {
                 infos.connection()
             );
             return false;
+        }
+
+        if (leader == null && members.isEmpty()) {
+            return true;
         }
 
         var data = Frame.PublicMessage.buffer(
@@ -328,6 +333,10 @@ final class ServerToServerController {
             leader.controller().queueData(data);
         }
         return true;
+    }
+
+    public void forwardedFusion() {
+        isFusing = false;
     }
 
     public boolean isLeader() {

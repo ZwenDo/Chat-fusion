@@ -21,16 +21,18 @@ public final class Readers {
     }
 
     public static <T, R> Reader<T> sizedReader(
+        Reader<? extends Number> sizeReader,
         Reader<R> reader,
         Function<Integer, ? extends T> factory,
         SizedReader.Function3<Integer, ? super R, ? super T, ? extends T> accumulator,
         Function<? super T, ? extends T> copier
     ) {
+        Objects.requireNonNull(sizeReader);
         Objects.requireNonNull(reader);
         Objects.requireNonNull(factory);
         Objects.requireNonNull(accumulator);
         Objects.requireNonNull(copier);
-        return new SizedReader<>(reader, factory, accumulator, copier);
+        return new SizedReader<>(sizeReader, reader, factory, accumulator, copier);
     }
 
 }

@@ -11,10 +11,9 @@ final class NumberReader<E extends Number> implements Reader<E> {
         DONE, WAITING
     }
 
-    private State state = State.WAITING;
-
-    private final ByteBuffer internalBuffer;
+    private final ByteBuffer inner;
     private final Function<? super ByteBuffer, E> extractor;
+    private State state = State.WAITING;
     private E value;
 
     public NumberReader(int size, Function<? super ByteBuffer, E> extractor) {
@@ -22,24 +21,25 @@ final class NumberReader<E extends Number> implements Reader<E> {
             throw new IllegalArgumentException("Size must be strictly positive");
         }
         Objects.requireNonNull(extractor);
-        this.internalBuffer = ByteBuffer.allocate(size);
+        this.inner = ByteBuffer.allocate(size);
         this.extractor = extractor;
     }
 
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
+        Objects.requireNonNull(buffer);
         if (state == State.DONE) {
-            throw new IllegalStateException("Already done.");
+            throw new IllegalStateException("Reader is already done.");
         }
 
-        BufferUtils.transferTo(buffer, internalBuffer);
-
-        if (internalBuffer.hasRemaining()) {
+        BufferUtils.transferTo(buffer, inner);
+        if (inner.hasRemaining()) {
             return ProcessStatus.REFILL;
         }
+
         state = State.DONE;
-        internalBuffer.flip();
-        value = extractor.apply(internalBuffer);
+        inner.flip();
+        value = extractor.apply(inner);
         return ProcessStatus.DONE;
     }
 
@@ -54,6 +54,6 @@ final class NumberReader<E extends Number> implements Reader<E> {
     @Override
     public void reset() {
         state = State.WAITING;
-        internalBuffer.clear();
+        inner.clear();
     }
 }

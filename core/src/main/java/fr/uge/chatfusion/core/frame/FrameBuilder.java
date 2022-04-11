@@ -10,8 +10,8 @@ import java.util.Objects;
 final class FrameBuilder {
     private ByteBuffer buffer = ByteBuffer.allocate(1_024);
 
-    public FrameBuilder(byte opcode) {
-        buffer.put(opcode);
+    public FrameBuilder(FrameOpcode opcode) {
+        buffer.put(opcode.value);
     }
 
     public FrameBuilder addInt(int i) {

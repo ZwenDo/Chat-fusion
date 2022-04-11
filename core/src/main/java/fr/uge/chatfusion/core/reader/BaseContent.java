@@ -7,6 +7,9 @@ import java.util.Objects;
 public final class BaseContent {
     private final ArrayDeque<Object> deque = new ArrayDeque<>();
 
+    BaseContent() {
+    }
+
     void add(Object o) {
         Objects.requireNonNull(o);
         deque.add(o);

@@ -27,26 +27,35 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
     private final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
     private final Reader<Frame> reader = Frame.reader();
-    private Runnable onClose = () -> {};
-    private FrameVisitor visitor = new FrameVisitor() {};
+    private Runnable onClose = () -> {
+    };
+    private FrameVisitor visitor = new FrameVisitor() {
+    };
     private boolean closing;
     private boolean closed;
     private boolean connected;
+    private boolean logging;
 
-    public SelectionKeyControllerImpl(SelectionKey key, InetSocketAddress remoteAddress, boolean isConnected) {
+    public SelectionKeyControllerImpl(
+        SelectionKey key,
+        InetSocketAddress remoteAddress,
+        boolean isConnected,
+        boolean logging
+    ) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(remoteAddress);
         this.key = key;
         this.sc = (SocketChannel) key.channel();
         this.remoteAddress = remoteAddress;
         this.connected = isConnected;
+        this.logging = logging;
         updateInterestOps();
     }
 
     @Override
     public void doRead() throws IOException {
         if (sc.read(bufferIn) == -1) {
-            logAndClose(Level.INFO, sc.getRemoteAddress() + " Connection closed remotely.");
+            logAndClose(Level.INFO, " Connection closed remotely.");
             return;
         }
 
@@ -160,8 +169,15 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
                 reader.get().accept(visitor);
                 reader.reset();
             } catch (IllegalStateException e) {
-                e.printStackTrace();
-                logAndClose(Level.SEVERE,"Error while reading. Closing connection...\n" + e.getMessage());
+                logAndClose(Level.SEVERE, "Error while reading. Closing connection...\n" + e.getMessage());
+                break;
+            } catch (UnsupportedOperationException e) {
+                logAndClose(
+                    Level.SEVERE,
+                    "Reader cannot read "
+                        + reader.get().getClass().getSimpleName()
+                        + ". Closing connection...\n"
+                );
                 break;
             }
         }
@@ -179,7 +195,9 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     }
 
     private void logAndClose(Level level, String message) {
-        LOGGER.log(level, remoteAddress + " : " + message);
+        if (logging) {
+            LOGGER.log(level, remoteAddress + " : " + message);
+        }
         CloseableUtils.silentlyClose(sc);
         onClose.run();
     }

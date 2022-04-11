@@ -7,11 +7,11 @@ import java.util.Objects;
 
 final class LoggedClientVisitor implements FrameVisitor {
     private final ClientToServerInterface server;
-    private final RemoteInfo infos;
+    private final IdentifiedRemoteInfo infos;
 
     public LoggedClientVisitor(
         ClientToServerInterface server,
-        RemoteInfo infos
+        IdentifiedRemoteInfo infos
     ) {
         Objects.requireNonNull(server);
         Objects.requireNonNull(infos);

@@ -7,9 +7,9 @@ import java.util.Objects;
 
 final class FusedServerVisitor implements FrameVisitor {
     private final ServerToServerInterface server;
-    private final RemoteInfo infos;
+    private final IdentifiedRemoteInfo infos;
 
-    FusedServerVisitor(ServerToServerInterface server, RemoteInfo infos) {
+    FusedServerVisitor(ServerToServerInterface server, IdentifiedRemoteInfo infos) {
         Objects.requireNonNull(server);
         Objects.requireNonNull(infos);
         this.server = server;

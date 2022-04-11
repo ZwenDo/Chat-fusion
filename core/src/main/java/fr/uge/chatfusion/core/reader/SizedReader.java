@@ -16,7 +16,7 @@ final class SizedReader<E, R> implements Reader<E> {
         R apply(T t, U u, V v);
     }
 
-    private final Reader<Integer> sizeReader;
+    private final Reader<? extends Number> sizeReader;
     private final Reader<R> reader;
     private final Function<Integer, ? extends E> factory;
     private final Function3<Integer, ? super R, ? super E, ? extends E> accumulator;
@@ -27,16 +27,7 @@ final class SizedReader<E, R> implements Reader<E> {
     private State state = State.WAITING_SIZE;
 
     public SizedReader(
-        Reader<R> reader,
-        Function<Integer, ? extends E> factory,
-        Function3<Integer, ? super R, ? super E, ? extends E> accumulator,
-        Function<? super E, ? extends E> copier
-    ) {
-        this(BaseReaders.intReader(), reader, factory, accumulator, copier);
-    }
-
-    public SizedReader(
-        Reader<Integer> sizeReader,
+        Reader<? extends Number> sizeReader,
         Reader<R> reader,
         Function<Integer, ? extends E> factory,
         Function3<Integer, ? super R, ? super E, ? extends E> accumulator,
@@ -57,6 +48,9 @@ final class SizedReader<E, R> implements Reader<E> {
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
         Objects.requireNonNull(buffer);
+        if (state == State.DONE || state == State.ERROR) {
+            throw new IllegalStateException("Reader is already done or in error state.");
+        }
 
         if (state == State.WAITING_SIZE) {
             var status = sizeReader.process(buffer);
@@ -67,7 +61,8 @@ final class SizedReader<E, R> implements Reader<E> {
                 return status;
             }
             state = State.WAITING_CONTENT;
-            size = sizeReader.get();
+            size = sizeReader.get().intValue();
+            sizeReader.reset();
             result = factory.apply(size);
             index = 0;
         }

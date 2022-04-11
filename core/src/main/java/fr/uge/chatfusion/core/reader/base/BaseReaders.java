@@ -15,7 +15,10 @@ public final class BaseReaders {
         return new NumberReader<>(Byte.BYTES, ByteBuffer::get);
     }
 
-    public static Reader<String> stringReader() {
-        return new StringReader();
+    public static Reader<String> stringReader(int maxTextLength) {
+        if (maxTextLength < 0) {
+            throw new IllegalArgumentException("maxTextLength must be positive.");
+        }
+        return new StringReader(maxTextLength);
     }
 }

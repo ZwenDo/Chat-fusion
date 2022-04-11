@@ -9,10 +9,7 @@ import fr.uge.chatfusion.server.visitor.Visitors;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedSelectorException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.*;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.logging.Level;
@@ -42,8 +39,10 @@ final class ServerSocketChannelController {
             try {
                 selector.select(this::treatKey);
                 processCommands();
+            } catch (CancelledKeyException e) {
+                // ignore exception cause by closing
             } catch (ClosedSelectorException e) {
-                // ignore
+                // ignore exception caused by server shutdown
                 break;
             } catch (UncheckedIOException tunneled) {
                 throw tunneled.getCause();
@@ -104,8 +103,9 @@ final class ServerSocketChannelController {
         sc.configureBlocking(false);
         var skey = sc.register(selector, SelectionKey.OP_READ);
         var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
-        var controller = new SelectionKeyControllerImpl(skey, remoteAddress, true);
-        var visitor = Visitors.defaultVisitor(server, new UnknownRemoteInfo(sc, remoteAddress, controller));
+        var controller = new SelectionKeyControllerImpl(skey, remoteAddress, true, true);
+        var infos = new UnknownRemoteInfo(sc, remoteAddress, controller);
+        var visitor = Visitors.defaultVisitor(server, infos);
         controller.setVisitor(visitor);
         skey.attach(controller);
     }

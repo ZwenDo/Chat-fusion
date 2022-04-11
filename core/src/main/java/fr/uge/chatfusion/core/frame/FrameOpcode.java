@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-enum FrameOpcodes {
+enum FrameOpcode {
     ANONYMOUS_LOGIN(0, Frame.AnonymousLogin::reader),
     LOGIN_ACCEPTED(2, Frame.LoginAccepted::reader),
     LOGIN_REFUSED(3, Frame.LoginRefused::reader),
@@ -26,7 +26,7 @@ enum FrameOpcodes {
     public final byte value;
     private final Function<FrameReaderPart, Reader<? extends Frame>> readerConstructor;
 
-    FrameOpcodes(int value, Function<FrameReaderPart, Reader<? extends Frame>> readerConstructor) {
+    FrameOpcode(int value, Function<FrameReaderPart, Reader<? extends Frame>> readerConstructor) {
         Objects.requireNonNull(readerConstructor);
         this.value = (byte) value;
         this.readerConstructor = readerConstructor;
@@ -38,12 +38,12 @@ enum FrameOpcodes {
         return (Reader<Frame>) readerConstructor.apply(part);
     }
 
-    private static final Map<Byte, FrameOpcodes> map;
+    private static final Map<Byte, FrameOpcode> map;
     static {
-        map = Arrays.stream(FrameOpcodes.values()).collect(Collectors.toUnmodifiableMap(e -> e.value, e -> e));
+        map = Arrays.stream(FrameOpcode.values()).collect(Collectors.toUnmodifiableMap(e -> e.value, e -> e));
     }
 
-    public static FrameOpcodes get(byte value) {
+    public static FrameOpcode get(byte value) {
         var code = map.get(value);
         if (code == null) {
             throw new IllegalArgumentException("Unknown opcode: " + value);

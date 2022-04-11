@@ -8,22 +8,27 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 
 final class StringReader implements Reader<String> {
-    private static final int MAX_BUFFER_SIZE = 1024;
-
     private enum State {
         DONE, WAITING_SIZE, WAITING_TEXT, ERROR
     }
 
     private State state = State.WAITING_SIZE;
-    private final ByteBuffer textBuffer = ByteBuffer.allocate(MAX_BUFFER_SIZE);
+    private final ByteBuffer textBuffer;
     private final Reader<Integer> sizeReader = BaseReaders.intReader();
     private String text;
+
+    public StringReader(int maxTextLength) {
+        if (maxTextLength < 0) {
+            throw new IllegalArgumentException("maxTextLength must be positive.");
+        }
+        textBuffer = ByteBuffer.allocate(maxTextLength);
+    }
 
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
         Objects.requireNonNull(buffer);
         if (state == State.DONE || state == State.ERROR) {
-            throw new IllegalStateException("Reader is already done or in error state");
+            throw new IllegalStateException("Reader is already done or in error state.");
         }
 
         if (state == State.WAITING_SIZE) {

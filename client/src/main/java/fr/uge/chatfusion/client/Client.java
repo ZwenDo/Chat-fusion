@@ -30,9 +30,12 @@ final class Client {
 
     public void launch() throws IOException {
         var key = controller.createSelectionKey();
-        var skeyController = new SelectionKeyControllerImpl(key, serverAddress, false);
+        var skeyController = new SelectionKeyControllerImpl(key, serverAddress, false, false);
         skeyController.setVisitor(new UniqueVisitor(this));
-        skeyController.setOnClose(this::shutdown);
+        skeyController.setOnClose(() -> {
+            System.out.println("An error occurred...");
+            shutdown();
+        });
         var data = Frame.AnonymousLogin.buffer(login);
         skeyController.queueData(data);
         key.attach(skeyController);

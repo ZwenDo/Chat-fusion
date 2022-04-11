@@ -18,7 +18,8 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-final class Server implements ClientToServerInterface, ServerToServerInterface, UnknownToServerInterface {
+final class Server implements
+    ClientToServerInterface, ServerToServerInterface, DefaultToServerInterface, PendingFusionToServerInterface {
     private static final Logger LOGGER = Logger.getLogger(Server.class.getName());
 
     private final Selector selector = Selector.open();
@@ -77,17 +78,36 @@ final class Server implements ClientToServerInterface, ServerToServerInterface, 
     }
 
     @Override
-    public void sendPublicMessage(Frame.PublicMessage message, RemoteInfo infos) {
+    public void fusionForwarded(Frame.FusionInitFwd fusionInitFwd, UnknownRemoteInfo infos) {
+        Objects.requireNonNull(fusionInitFwd);
+        Objects.requireNonNull(infos);
+        var address = fusionInitFwd.leaderAddress();
+        if (address.getAddress().isLoopbackAddress() && address.getPort() == this.address.getPort()) {
+            LOGGER.log(Level.WARNING, "Server tried to fusion with an other server of the group.");
+            return;
+        }
+        logMessageAndClose(
+            Level.INFO,
+            "Fusion forwarded to the leader of the remote group (" + address + ")",
+            infos.address(),
+            infos.connection()
+        );
+        serverServer.forwardedFusion();
+        initFusion(address);
+    }
+
+    @Override
+    public void sendPublicMessage(Frame.PublicMessage message, IdentifiedRemoteInfo infos) {
         sendPublicMessage(message, infos, false);
     }
 
     @Override
-    public void forwardPublicMessage(Frame.PublicMessage message, RemoteInfo infos) {
+    public void forwardPublicMessage(Frame.PublicMessage message, IdentifiedRemoteInfo infos) {
         sendPublicMessage(message, infos, true);
     }
 
     @Override
-    public void fusionRequest(Frame.FusionRequest fusionRequest, RemoteInfo infos) {
+    public void fusionRequest(Frame.FusionRequest fusionRequest, IdentifiedRemoteInfo infos) {
         Objects.requireNonNull(fusionRequest);
         Objects.requireNonNull(infos);
         if (!serverServer.isLeader()) {
@@ -99,12 +119,20 @@ final class Server implements ClientToServerInterface, ServerToServerInterface, 
             );
             return;
         }
+        var address = fusionRequest.remote();
+        if (address.getAddress().isLoopbackAddress() && address.getPort() == this.address.getPort()) {
+            LOGGER.log(
+                Level.WARNING,
+                infos.name() + "(" + infos.address() + ") tried to fusion with an other server of the group."
+            );
+            return;
+        }
         LOGGER.log(Level.INFO, "Fusion request from " + infos.address());
         initFusion(fusionRequest.remote());
     }
 
     @Override
-    public void changeLeader(Frame.FusionChangeLeader changeLeader, RemoteInfo infos) {
+    public void changeLeader(Frame.FusionChangeLeader changeLeader, IdentifiedRemoteInfo infos) {
         Objects.requireNonNull(changeLeader);
         Objects.requireNonNull(infos);
         controller.addCommand(() -> {
@@ -116,7 +144,7 @@ final class Server implements ClientToServerInterface, ServerToServerInterface, 
         });
     }
 
-    private void sendPublicMessage(Frame.PublicMessage message, RemoteInfo infos, boolean isFwd) {
+    private void sendPublicMessage(Frame.PublicMessage message, IdentifiedRemoteInfo infos, boolean isFwd) {
         if (!Sizes.checkMessageSize(message.message())) {
             logMessageAndClose(
                 Level.WARNING,
@@ -133,15 +161,15 @@ final class Server implements ClientToServerInterface, ServerToServerInterface, 
             return;
         }
 
-        if (isFwd) {
-            if (!serverServer.forwardPublicMessage(message, infos)) {
+        if (!isFwd || serverServer.isLeader()) {
+            if (!serverServer.tryForwardPublicMessage(message, infos)) {
                 return;
             }
         }
         serverClient.sendPublicMessage(message, infos);
     }
 
-    private boolean checkValidForward(String originServer, RemoteInfo infos, boolean isForwarded) {
+    private boolean checkValidForward(String originServer, IdentifiedRemoteInfo infos, boolean isForwarded) {
         if (isForwarded && serverName.equals(originServer) ||
             !isForwarded && !serverName.equals(originServer)) {
             logMessageAndClose(

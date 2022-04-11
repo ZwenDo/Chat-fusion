@@ -9,21 +9,27 @@ public final class Visitors {
         throw new AssertionError("No instances.");
     }
 
-    public static FrameVisitor loggedClientVisitor(ClientToServerInterface server, RemoteInfo infos) {
+    public static FrameVisitor loggedClientVisitor(ClientToServerInterface server, IdentifiedRemoteInfo infos) {
         Objects.requireNonNull(server);
         Objects.requireNonNull(infos);
         return new LoggedClientVisitor(server, infos);
     }
 
-    public static FrameVisitor fusedServerVisitor(ServerToServerInterface server, RemoteInfo infos) {
+    public static FrameVisitor fusedServerVisitor(ServerToServerInterface server, IdentifiedRemoteInfo infos) {
         Objects.requireNonNull(server);
         Objects.requireNonNull(infos);
         return new FusedServerVisitor(server, infos);
     }
 
-    public static FrameVisitor defaultVisitor(UnknownToServerInterface server, UnknownRemoteInfo infos) {
+    public static FrameVisitor defaultVisitor(DefaultToServerInterface server, UnknownRemoteInfo infos) {
         Objects.requireNonNull(server);
         Objects.requireNonNull(infos);
         return new DefaultVisitor(server, infos);
+    }
+
+    public static FrameVisitor pendingFusionVisitor(PendingFusionToServerInterface server, UnknownRemoteInfo infos) {
+        Objects.requireNonNull(server);
+        Objects.requireNonNull(infos);
+        return new PendingFusionVisitor(server, infos);
     }
 }

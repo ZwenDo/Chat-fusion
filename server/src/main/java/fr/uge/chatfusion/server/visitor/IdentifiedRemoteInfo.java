@@ -4,8 +4,8 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.util.Objects;
 
-public record RemoteInfo(String name, SocketChannel connection, InetSocketAddress address) {
-    public RemoteInfo {
+public record IdentifiedRemoteInfo(String name, SocketChannel connection, InetSocketAddress address) {
+    public IdentifiedRemoteInfo {
         Objects.requireNonNull(name);
         Objects.requireNonNull(connection);
         Objects.requireNonNull(address);

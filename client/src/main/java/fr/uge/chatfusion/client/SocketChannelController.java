@@ -6,10 +6,7 @@ import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedSelectorException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.ArrayDeque;
 import java.util.Objects;
 
@@ -38,8 +35,8 @@ final class SocketChannelController {
             try {
                 selector.select(this::treatKey);
                 processCommands();
-            } catch (ClosedSelectorException e) {
-                // ignore
+            } catch (CancelledKeyException | ClosedSelectorException e) {
+                // ignore exceptions caused by closing
                 break;
             } catch (UncheckedIOException tunneled) {
                 throw tunneled.getCause();
