@@ -29,4 +29,10 @@ public final class UniqueVisitor implements FrameVisitor {
         Objects.requireNonNull(publicMessage);
         System.out.println(publicMessage.format());
     }
+
+    @Override
+    public void visit(Frame.DirectMessage directMessage) {
+        Objects.requireNonNull(directMessage);
+        System.out.println(directMessage.format());
+    }
 }

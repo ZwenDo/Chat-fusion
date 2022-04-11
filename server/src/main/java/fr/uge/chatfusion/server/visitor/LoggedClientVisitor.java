@@ -25,5 +25,9 @@ final class LoggedClientVisitor implements FrameVisitor {
         server.sendPublicMessage(publicMessage, infos);
     }
 
-
+    @Override
+    public void visit(Frame.DirectMessage directMessage) {
+        Objects.requireNonNull(directMessage);
+        server.sendDirectMessage(directMessage, infos);
+    }
 }

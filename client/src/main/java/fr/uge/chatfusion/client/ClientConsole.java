@@ -20,21 +20,30 @@ final class ClientConsole implements Runnable {
                 if ("SHUTDOWN".equals(input)) {
                     client.shutdown();
                 } else {
-                    processCommand(scanner, input);
+                    processCommand(input);
                 }
             }
         }
         client.shutdown();
     }
 
-    private void processCommand(Scanner scanner, String input) {
+    private void processCommand(String input) {
         if (input.startsWith("/")) {
-            System.out.println("File sending not implemented yet");
+            processDirectMessage(input);
         } else if (input.startsWith("@")) {
             System.out.println("Direct message not implemented yet");
         } else {
             client.sendMessage(input);
         }
+    }
+
+    private void processDirectMessage(String input) {
+        var args = input.split(" ", 2);
+        var info = args[0].substring(1).split(":");
+        var dstSrv = info[0];
+        var dstUser = info[1];
+        var message = args[1];
+        client.sendDirectMessage(dstSrv, dstUser, message);
     }
 
 }

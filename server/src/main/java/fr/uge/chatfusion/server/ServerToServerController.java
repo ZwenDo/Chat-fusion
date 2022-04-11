@@ -16,6 +16,7 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.UnresolvedAddressException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -219,7 +220,13 @@ final class ServerToServerController {
             LOGGER.log(Level.INFO, "Sending fusion request...");
             var sc = SocketChannel.open();
             sc.configureBlocking(false);
-            sc.connect(remote);
+            try {
+                sc.connect(remote);
+            } catch (UnresolvedAddressException e) {
+                LOGGER.log(Level.INFO, "Unknown address: " + remote);
+                isFusing = false;
+                return;
+            }
             var key = factory.apply(sc);
             var ctx = new SelectionKeyControllerImpl(key, remote, false, true);
             var infos = new UnknownRemoteInfo(sc, remote, ctx);
@@ -341,6 +348,32 @@ final class ServerToServerController {
 
     public boolean isLeader() {
         return leader == null;
+    }
+
+    public void forwardDirectMessage(Frame.DirectMessage message, IdentifiedRemoteInfo infos) {
+        Objects.requireNonNull(message);
+        Objects.requireNonNull(infos);
+
+        var destinationServer = message.destinationServer();
+        var data = Frame.DirectMessage.buffer(
+            message.originServer(),
+            message.senderUsername(),
+            destinationServer,
+            message.recipientUsername(),
+            message.message()
+        );
+
+        if (leader != null) {
+            leader.controller().queueData(data);
+            return;
+        }
+
+        var recipient = members.get(destinationServer);
+        if (recipient != null) {
+            recipient.queueData(data);
+        } else {
+            LOGGER.log(Level.INFO, "Direct message destination server (" + destinationServer + ") not found");
+        }
     }
 
     private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {

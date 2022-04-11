@@ -104,4 +104,24 @@ final class ClientToServerController {
         LOGGER.log(level, address + " : " + message);
         CloseableUtils.silentlyClose(closeable);
     }
+
+    public void sendDirectMessage(Frame.DirectMessage message, IdentifiedRemoteInfo infos) {
+        Objects.requireNonNull(message);
+        Objects.requireNonNull(infos);
+
+        var username = message.recipientUsername();
+        var receiver = clients.get(username);
+        if (receiver == null) {
+            LOGGER.log(Level.INFO, "Receiver not found (" + username + ")");
+            return;
+        }
+
+        receiver.queueData(Frame.DirectMessage.buffer(
+            message.originServer(),
+            message.senderUsername(),
+            message.recipientUsername(),
+            message.recipientUsername(),
+            message.message()
+        ));
+    }
 }

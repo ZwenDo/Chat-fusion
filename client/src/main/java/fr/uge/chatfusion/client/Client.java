@@ -91,7 +91,17 @@ final class Client {
         });
     }
 
-    public void sendPrivateMessage(String targetServer, String targetUsername, String message) {
-
+    public void sendDirectMessage(String dstSrv, String dstUser, String message) {
+        Objects.requireNonNull(dstSrv);
+        Objects.requireNonNull(dstUser);
+        Objects.requireNonNull(message);
+        if (!Sizes.checkMessageSize(message)) {
+            System.out.println("Message too long !");
+            return;
+        }
+        controller.addCommand(() -> {
+            var data = Frame.DirectMessage.buffer(serverName, login, dstSrv, dstUser, message);
+            context.queueData(data);
+        });
     }
 }

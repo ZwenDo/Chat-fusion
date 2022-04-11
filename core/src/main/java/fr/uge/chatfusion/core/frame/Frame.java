@@ -314,5 +314,64 @@ public sealed interface Frame {
             return "[" + originServer + "] " + senderUsername + ": " + message;
         }
     }
+
+    record DirectMessage(
+        String originServer,
+        String senderUsername,
+        String destinationServer,
+        String recipientUsername,
+        String message
+    ) implements Frame {
+        public DirectMessage {
+            Objects.requireNonNull(originServer);
+            Objects.requireNonNull(senderUsername);
+            Objects.requireNonNull(destinationServer);
+            Objects.requireNonNull(recipientUsername);
+            Objects.requireNonNull(message);
+        }
+
+        @Override
+        public void accept(FrameVisitor visitor) {
+            Objects.requireNonNull(visitor);
+            visitor.visit(this);
+        }
+
+        public static ByteBuffer buffer(
+            String originServer,
+            String senderUsername,
+            String destinationServer,
+            String recipientUsername,
+            String message
+        ) {
+            Objects.requireNonNull(originServer);
+            Objects.requireNonNull(senderUsername);
+            Objects.requireNonNull(destinationServer);
+            Objects.requireNonNull(recipientUsername);
+            Objects.requireNonNull(message);
+            return new FrameBuilder(FrameOpcode.DIRECT_MESSAGE)
+                .addString(originServer)
+                .addString(senderUsername)
+                .addString(destinationServer)
+                .addString(recipientUsername)
+                .addString(message)
+                .build();
+        }
+
+        static Reader<Frame.DirectMessage> reader(FrameReaderPart parts) {
+            Objects.requireNonNull(parts);
+            return Readers.objectReader(
+                c -> new Frame.DirectMessage(c.next(), c.next(), c.next(), c.next(), c.next()),
+                parts.string(),
+                parts.string(),
+                parts.string(),
+                parts.string(),
+                parts.string()
+            );
+        }
+
+        public String format() {
+            return "[" + originServer + "] " + senderUsername + " whispers to you: " + message;
+        }
+    }
     //endregion
 }

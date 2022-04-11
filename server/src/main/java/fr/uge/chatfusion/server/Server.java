@@ -10,10 +10,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
+import java.net.UnknownHostException;
+import java.nio.channels.*;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -99,6 +97,30 @@ final class Server implements
     @Override
     public void sendPublicMessage(Frame.PublicMessage message, IdentifiedRemoteInfo infos) {
         sendPublicMessage(message, infos, false);
+    }
+
+    @Override
+    public void sendDirectMessage(Frame.DirectMessage message, IdentifiedRemoteInfo infos) {
+        Objects.requireNonNull(message);
+        Objects.requireNonNull(infos);
+        if (!Sizes.checkMessageSize(message.message())) {
+            logMessageAndClose(
+                Level.WARNING,
+                "Message too long from: "
+                    + message.originServer()
+                    + "/" + message.senderUsername(),
+                infos.address(),
+                infos.connection()
+            );
+            return;
+        }
+
+        if (serverName.equals(message.destinationServer())) {
+            serverClient.sendDirectMessage(message, infos);
+        } else {
+            serverServer.forwardDirectMessage(message, infos);
+        }
+
     }
 
     @Override

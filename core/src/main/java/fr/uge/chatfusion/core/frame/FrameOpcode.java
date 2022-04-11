@@ -19,8 +19,8 @@ enum FrameOpcode {
     FUSION_INIT_KO(10, Frame.FusionInitKo::reader),
     FUSION_REQUEST(12, Frame.FusionRequest::reader),
     FUSION_CHANGE_LEADER(14, Frame.FusionChangeLeader::reader),
-    FUSION_MERGE(15, Frame.FusionMerge::reader)
-
+    FUSION_MERGE(15, Frame.FusionMerge::reader),
+    DIRECT_MESSAGE(5, Frame.DirectMessage::reader)
     ;
 
     public final byte value;

@@ -34,4 +34,10 @@ final class FusedServerVisitor implements FrameVisitor {
         Objects.requireNonNull(fusionChangeLeader);
         server.changeLeader(fusionChangeLeader, infos);
     }
+
+    @Override
+    public void visit(Frame.DirectMessage directMessage) {
+        Objects.requireNonNull(directMessage);
+        server.sendDirectMessage(directMessage, infos);
+    }
 }

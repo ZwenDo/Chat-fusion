@@ -45,4 +45,8 @@ public interface FrameVisitor {
     default void visit(Frame.FusionRequest fusionRequest) {
         throw new UnsupportedOperationException();
     }
+
+    default void visit(Frame.DirectMessage directMessage) {
+        throw new UnsupportedOperationException();
+    }
 }
