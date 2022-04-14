@@ -13,29 +13,35 @@ enum FrameOpcode {
     LOGIN_ACCEPTED(2, Frame.LoginAccepted::reader),
     LOGIN_REFUSED(3, Frame.LoginRefused::reader),
     PUBLIC_MESSAGE(4, Frame.PublicMessage::reader),
+    DIRECT_MESSAGE(5, Frame.DirectMessage::reader),
+    FILE_SENDING(6, Frame.FileSending::buffer),
     FUSION_INIT(8, Frame.FusionInit::reader),
-    FUSION_INIT_FWD(11, Frame.FusionInitFwd::reader),
     FUSION_INIT_OK(9, Frame.FusionInitOk::reader),
     FUSION_INIT_KO(10, Frame.FusionInitKo::reader),
+    FUSION_INIT_FWD(11, Frame.FusionInitFwd::reader),
     FUSION_REQUEST(12, Frame.FusionRequest::reader),
     FUSION_CHANGE_LEADER(14, Frame.FusionChangeLeader::reader),
     FUSION_MERGE(15, Frame.FusionMerge::reader),
-    DIRECT_MESSAGE(5, Frame.DirectMessage::reader)
+
     ;
 
-    public final byte value;
-    private final Function<FrameReaderPart, Reader<? extends Frame>> readerConstructor;
+    private final byte value;
+    private final Function<FrameReader.FrameReaderPart, Reader<? extends Frame>> readerConstructor;
 
-    FrameOpcode(int value, Function<FrameReaderPart, Reader<? extends Frame>> readerConstructor) {
+    FrameOpcode(int value, Function<FrameReader.FrameReaderPart, Reader<? extends Frame>> readerConstructor) {
         Objects.requireNonNull(readerConstructor);
         this.value = (byte) value;
         this.readerConstructor = readerConstructor;
     }
 
     @SuppressWarnings("unchecked")
-    public Reader<Frame> reader(FrameReaderPart part) {
+    public Reader<Frame> reader(FrameReader.FrameReaderPart part) {
         Objects.requireNonNull(readerConstructor);
         return (Reader<Frame>) readerConstructor.apply(part);
+    }
+
+    public byte value() {
+        return value;
     }
 
     private static final Map<Byte, FrameOpcode> map;

@@ -40,4 +40,10 @@ final class FusedServerVisitor implements FrameVisitor {
         Objects.requireNonNull(directMessage);
         server.sendDirectMessage(directMessage, infos);
     }
+
+    @Override
+    public void visit(Frame.FileSending fileSending) {
+        Objects.requireNonNull(fileSending);
+        server.sendFile(fileSending, infos);
+    }
 }

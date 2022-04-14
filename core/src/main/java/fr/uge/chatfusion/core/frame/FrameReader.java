@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 final class FrameReader implements Reader<Frame> {
 
@@ -88,7 +89,7 @@ final class FrameReader implements Reader<Frame> {
         var parts = parts(byteReader);
         @SuppressWarnings("unchecked")
         var readers = (Reader<Frame>[]) Arrays.stream(FrameOpcode.values())
-            .map(o -> o.reader(parts))
+            .map(op -> op.reader(parts))
             .toArray(Reader[]::new);
 
         return b -> {
@@ -103,27 +104,49 @@ final class FrameReader implements Reader<Frame> {
     private static FrameReaderPart parts(Reader<Byte> byteReader) {
         var intReader = BaseReaders.intReader();
         var stringReader = BaseReaders.stringReader(Sizes.MAX_MESSAGE_SIZE);
-        var stringListReader = Readers.<List<String>, String>sizedReader(
+        var stringListReader = Readers.sizedReader(
             intReader,
             stringReader,
+            Collectors.toUnmodifiableList()
+        );
+        var addressReader = inetSocketAddressReader(byteReader, intReader);
+        var bytesReader = Readers.<Byte, List<Byte>, ByteBuffer>sizedReader(
+            intReader,
+            byteReader,
             ArrayList::new,
-            (i, v, l) -> {
-                l.add(v);
-                return l;
-            },
-            List::copyOf
+            List::add,
+            l -> {
+                var size = l.size();
+                var bytes = new byte[size];
+                for (int i = 0; i < size; i++) {
+                    bytes[i] = l.get(i);
+                }
+                return ByteBuffer.wrap(bytes).compact();
+            }
         );
-        var addressArrayReader = Readers.sizedReader(
+        var longReader = BaseReaders.longReader();
+        return new FrameReaderPart(intReader, longReader, stringReader, stringListReader, addressReader, bytesReader);
+    }
+
+    private static Reader<InetSocketAddress> inetSocketAddressReader(
+        Reader<Byte> byteReader,
+        Reader<Integer> intReader
+    ) {
+        var addressArrayReader = Readers.<Byte, List<Byte>, byte[]>sizedReader(
             byteReader,
             byteReader,
-            byte[]::new,
-            (i, v, a) -> {
-                a[i] = v;
-                return a;
-            },
-            (a) -> Arrays.copyOf(a, a.length)
+            ArrayList::new,
+            List::add,
+            l -> {
+                var size = l.size();
+                var bytes = new byte[size];
+                for (int i = 0; i < size; i++) {
+                    bytes[i] = l.get(i);
+                }
+                return bytes;
+            }
         );
-        var addressReader = Readers.objectReader(
+        return Readers.objectReader(
             c -> {
                 try {
                     return new InetSocketAddress(InetAddress.getByAddress(c.next()), c.next());
@@ -134,6 +157,23 @@ final class FrameReader implements Reader<Frame> {
             addressArrayReader,
             intReader
         );
-        return new FrameReaderPart(intReader, stringReader, stringListReader, addressReader);
+    }
+
+    record FrameReaderPart(
+        Reader<Integer> integer,
+        Reader<Long> longInteger,
+        Reader<String> string,
+        Reader<List<String>> stringList,
+        Reader<InetSocketAddress> address,
+        Reader<ByteBuffer> byteBuffer
+    ) {
+        public FrameReaderPart {
+            Objects.requireNonNull(integer);
+            Objects.requireNonNull(longInteger);
+            Objects.requireNonNull(string);
+            Objects.requireNonNull(stringList);
+            Objects.requireNonNull(address);
+            Objects.requireNonNull(byteBuffer);
+        }
     }
 }

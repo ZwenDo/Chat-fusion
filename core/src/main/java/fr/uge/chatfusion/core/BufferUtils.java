@@ -1,6 +1,7 @@
 package fr.uge.chatfusion.core;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.Objects;
 
 public final class BufferUtils {
@@ -26,9 +27,17 @@ public final class BufferUtils {
 
     public static ByteBuffer copy(ByteBuffer buffer) {
         Objects.requireNonNull(buffer);
+
+        var oldLimit = buffer.limit();
+        var oldPosition = buffer.position();
         buffer.flip();
+
         var newBuffer = ByteBuffer.allocate(buffer.remaining());
         newBuffer.put(buffer);
+
+        buffer.limit(oldLimit);
+        buffer.position(oldPosition);
+
         return newBuffer;
     }
 
@@ -39,6 +48,20 @@ public final class BufferUtils {
         buffer.putInt(str.remaining());
         buffer.put(str);
         return buffer;
+    }
+
+    public static void fillQueue(ArrayDeque<ByteBuffer> queue, ByteBuffer data, int bufferSize) {
+        if (queue.isEmpty()) {
+            queue.addLast(ByteBuffer.allocate(bufferSize));
+        }
+
+        while (data.position() > 0) {
+            var dest = queue.getLast();
+            BufferUtils.transferTo(data, dest);
+            if (!dest.hasRemaining()) {
+                queue.addLast(ByteBuffer.allocate(bufferSize));
+            }
+        }
     }
 
 }

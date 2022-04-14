@@ -10,4 +10,6 @@ public interface ServerToServerInterface {
     void fusionRequest(Frame.FusionRequest fusionRequest, IdentifiedRemoteInfo infos);
 
     void changeLeader(Frame.FusionChangeLeader changeLeader, IdentifiedRemoteInfo infos);
+
+    void sendFile(Frame.FileSending fileSending, IdentifiedRemoteInfo infos);
 }

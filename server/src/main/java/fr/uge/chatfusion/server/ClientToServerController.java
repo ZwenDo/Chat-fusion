@@ -1,6 +1,5 @@
 package fr.uge.chatfusion.server;
 
-import fr.uge.chatfusion.core.BufferUtils;
 import fr.uge.chatfusion.core.CloseableUtils;
 import fr.uge.chatfusion.core.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
@@ -11,8 +10,10 @@ import fr.uge.chatfusion.server.visitor.Visitors;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -36,12 +37,23 @@ final class ClientToServerController {
         Objects.requireNonNull(infos);
 
         var username = anonymousLogin.username();
-        if (!checkLogin(anonymousLogin, infos)) {
+        if (!Sizes.checkUsernameSize(username)) {
+            logMessageAndClose(
+                Level.WARNING,
+                "Invalid username size (" + username + ")",
+                infos.address(),
+                infos.connection()
+            );
             return;
         }
 
         var controller = infos.controller();
-        clients.put(username, controller);
+        if (clients.putIfAbsent(username, controller) != null) {
+            LOGGER.log(Level.WARNING, "Username already used (" + username + ")");
+            controller.queueData(Frame.LoginRefused.buffer());
+            controller.closeWhenAllSent();
+            return;
+        }
 
         // changing the visitor
         var userInfos = new IdentifiedRemoteInfo(username, infos.connection(), infos.address());
@@ -56,14 +68,8 @@ final class ClientToServerController {
     public void sendPublicMessage(Frame.PublicMessage message, IdentifiedRemoteInfo remoteInfo) {
         Objects.requireNonNull(message);
         Objects.requireNonNull(remoteInfo);
-
-        var data = Frame.PublicMessage.buffer(
-            message.originServer(),
-            message.senderUsername(),
-            message.message()
-        );
         clients.values()
-            .forEach(client -> client.queueData(BufferUtils.copy(data)));
+            .forEach(client -> client.queueData(message.buffer()));
     }
 
     public String info() {
@@ -77,51 +83,30 @@ final class ClientToServerController {
         return size + " connected client(s):\n-" + connectedList;
     }
 
-    private boolean checkLogin(Frame.AnonymousLogin anonymousLogin, UnknownRemoteInfo infos) {
-        var username = anonymousLogin.username();
-        if (!Sizes.checkUsernameSize(username)) {
-            logMessageAndClose(
-                Level.WARNING,
-                "Invalid username size (" + username + ")",
-                infos.address(),
-                infos.connection()
-            );
-            return false;
-        }
+    public void sendDirectMessage(Frame.DirectMessage message) {
+        Objects.requireNonNull(message);
+        sendData(message.recipientUsername(), message::buffer);
+    }
 
-        if (clients.containsKey(username)) {
-            LOGGER.log(Level.WARNING, "Username already used (" + username + ")");
-            var controller = infos.controller();
-            controller.queueData(Frame.LoginRefused.buffer());
-            controller.closeWhenAllSent();
-            return false;
+    public void sendFile(Frame.FileSending fileSending) {
+        Objects.requireNonNull(fileSending);
+        if (!clients.containsKey(fileSending.recipientUsername())) {
+            return;
         }
+        sendData(fileSending.recipientUsername(), fileSending::buffer);
+    }
 
-        return true;
+    private void sendData(String recipientUsername, Supplier<ByteBuffer> data) {
+        var recipient = clients.get(recipientUsername);
+        if (recipient == null) {
+            LOGGER.log(Level.INFO, "Receiver not found (" + recipientUsername + ")");
+            return;
+        }
+        recipient.queueData(data.get());
     }
 
     private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {
         LOGGER.log(level, address + " : " + message);
         CloseableUtils.silentlyClose(closeable);
-    }
-
-    public void sendDirectMessage(Frame.DirectMessage message, IdentifiedRemoteInfo infos) {
-        Objects.requireNonNull(message);
-        Objects.requireNonNull(infos);
-
-        var username = message.recipientUsername();
-        var receiver = clients.get(username);
-        if (receiver == null) {
-            LOGGER.log(Level.INFO, "Receiver not found (" + username + ")");
-            return;
-        }
-
-        receiver.queueData(Frame.DirectMessage.buffer(
-            message.originServer(),
-            message.senderUsername(),
-            message.recipientUsername(),
-            message.recipientUsername(),
-            message.message()
-        ));
     }
 }

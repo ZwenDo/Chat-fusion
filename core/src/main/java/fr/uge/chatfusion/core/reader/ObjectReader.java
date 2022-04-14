@@ -56,7 +56,9 @@ final class ObjectReader<E> implements Reader<E> {
         } catch (ObjectConstructionException e) {
             state = State.ERROR;
             var index = content.size();
-            throw new IllegalStateException("Error while constructing object, near argument " + index + ": ", e);
+            throw new IllegalStateException(
+                "Error while constructing object, near argument " + index + ": " + e.getMessage()
+            );
         }
 
         state = State.DONE;

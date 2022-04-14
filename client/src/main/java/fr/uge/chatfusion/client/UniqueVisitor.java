@@ -1,10 +1,11 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.frame.*;
+import fr.uge.chatfusion.core.frame.Frame;
+import fr.uge.chatfusion.core.frame.FrameVisitor;
 
 import java.util.Objects;
 
-public final class UniqueVisitor implements FrameVisitor {
+final class UniqueVisitor implements FrameVisitor {
     private final Client client;
 
     public UniqueVisitor(Client client) {
@@ -34,5 +35,11 @@ public final class UniqueVisitor implements FrameVisitor {
     public void visit(Frame.DirectMessage directMessage) {
         Objects.requireNonNull(directMessage);
         System.out.println(directMessage.format());
+    }
+
+    @Override
+    public void visit(Frame.FileSending fileSending) {
+        Objects.requireNonNull(fileSending);
+        client.receiveFileBlock(fileSending);
     }
 }

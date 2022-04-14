@@ -2,44 +2,45 @@ package fr.uge.chatfusion.client;
 
 import fr.uge.chatfusion.core.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
-import fr.uge.chatfusion.core.selection.SelectionKeyController;
-import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.Objects;
 
 final class Client {
     private final String login;
     private final SocketChannelController controller;
-    private String serverName;
     private final InetSocketAddress serverAddress;
-    private SelectionKeyController context;
+    private final FileReceivingController fileReceivingController;
+    private ClientKeyController context;
+    private String serverName;
 
-    public Client(String host, int port, String login) throws IOException {
+    public Client(String host, int port, Path filePath, String login) throws IOException {
         Objects.requireNonNull(host);
         if (port < 0 || port > 65535) {
             throw new IllegalArgumentException("Invalid port: " + port);
         }
         Objects.requireNonNull(login);
+        Objects.requireNonNull(filePath);
         this.serverAddress = new InetSocketAddress(host, port);
-        this.controller = new SocketChannelController(serverAddress);
+        this.controller = new SocketChannelController(serverAddress, this::shutdown);
+        this.fileReceivingController = new FileReceivingController(filePath);
         this.login = login;
     }
 
     public void launch() throws IOException {
         var key = controller.createSelectionKey();
-        var skeyController = new SelectionKeyControllerImpl(key, serverAddress, false, false);
-        skeyController.setVisitor(new UniqueVisitor(this));
-        skeyController.setOnClose(() -> {
+        context = new ClientKeyController(key, serverAddress);
+        context.setVisitor(new UniqueVisitor(this));
+        context.setOnClose(() -> {
             System.out.println("An error occurred...");
             shutdown();
         });
         var data = Frame.AnonymousLogin.buffer(login);
-        skeyController.queueData(data);
-        key.attach(skeyController);
-        context = skeyController;
+        context.queueData(data);
+        context.processOut();
+        key.attach(context);
         controller.launch();
     }
 
@@ -85,10 +86,9 @@ final class Client {
             System.out.println("Message too long !");
             return;
         }
-        controller.addCommand(() -> {
-            var data = Frame.PublicMessage.buffer(serverName, login, input);
-            context.queueData(data);
-        });
+        var data = Frame.PublicMessage.buffer(serverName, login, input);
+        context.queueData(data);
+        controller.addCommand(context::processOut);
     }
 
     public void sendDirectMessage(String dstSrv, String dstUser, String message) {
@@ -99,9 +99,33 @@ final class Client {
             System.out.println("Message too long !");
             return;
         }
-        controller.addCommand(() -> {
-            var data = Frame.DirectMessage.buffer(serverName, login, dstSrv, dstUser, message);
-            context.queueData(data);
-        });
+        var data = Frame.DirectMessage.buffer(serverName, login, dstSrv, dstUser, message);
+        context.queueData(data);
+        controller.addCommand(context::processOut);
+    }
+
+    public void receiveFileBlock(Frame.FileSending fileSending) {
+        try {
+            fileReceivingController.receiveFileBlock(fileSending);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Error while receiving file");
+        }
+    }
+
+    public void sendFile(String dstSrv, String dstUser, Path filePath) {
+        Objects.requireNonNull(dstSrv);
+        Objects.requireNonNull(dstUser);
+        Objects.requireNonNull(filePath);
+        if (!Sizes.checkServerNameSize(dstSrv) || !Sizes.checkUsernameSize(dstUser)) {
+            System.out.println("Error, server name or username too long !");
+            return;
+        }
+        if (login.equals(dstUser) && serverName.equals(dstSrv)) {
+            System.out.println("You can't send a file to yourself !");
+            return;
+        }
+        context.queueFile(serverName, login, dstSrv, dstUser, filePath);
+        controller.addCommand(context::processOut);
     }
 }

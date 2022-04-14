@@ -27,14 +27,15 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
     private final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
     private final Reader<Frame> reader = Frame.reader();
+    private final boolean logging;
     private Runnable onClose = () -> {
+    };
+    private Runnable onSendingAllData = () -> {
     };
     private FrameVisitor visitor = new FrameVisitor() {
     };
     private boolean closing;
-    private boolean closed;
     private boolean connected;
-    private boolean logging;
 
     public SelectionKeyControllerImpl(
         SelectionKey key,
@@ -70,12 +71,15 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         bufferOut.compact();
 
         processOut();
+        if (bufferOut.position() == 0) {
+            onSendingAllData.run();
+        }
         updateInterestOps();
     }
 
     @Override
     public void doConnect() throws IOException {
-        if (!sc.finishConnect() || connected || closed) return;
+        if (!sc.finishConnect() || connected) return;
         connected = true;
         updateInterestOps();
     }
@@ -83,22 +87,10 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     @Override
     public void queueData(ByteBuffer data) {
         Objects.requireNonNull(data);
-        if (closing || closed) {
+        if (closing) {
             throw new IllegalStateException("Connection is closing or closed.");
         }
-
-        if (queue.isEmpty()) {
-            queue.addLast(ByteBuffer.allocate(BUFFER_SIZE));
-        }
-
-        while (data.position() > 0) {
-            var dest = queue.getLast();
-            BufferUtils.transferTo(data, dest);
-            if (!dest.hasRemaining()) {
-                queue.addLast(ByteBuffer.allocate(BUFFER_SIZE));
-            }
-        }
-
+        BufferUtils.fillQueue(queue, data, BUFFER_SIZE);
         processOut();
         updateInterestOps();
     }
@@ -112,7 +104,6 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     @Override
     public void close() {
         CloseableUtils.silentlyClose(sc);
-        closed = true;
         onClose.run();
     }
 
@@ -124,11 +115,6 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     public void setVisitor(FrameVisitor visitor) {
         Objects.requireNonNull(visitor);
         this.visitor = visitor;
-    }
-
-    public void setOnClose(Runnable onClose) {
-        Objects.requireNonNull(onClose);
-        this.onClose = onClose;
     }
 
     private void updateInterestOps() {
@@ -153,6 +139,16 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         }
 
         key.interestOps(op);
+    }
+
+    public void setOnClose(Runnable onClose) {
+        Objects.requireNonNull(onClose);
+        this.onClose = onClose;
+    }
+
+    public void setOnSendingAllData(Runnable onSendingAllData) {
+        Objects.requireNonNull(onSendingAllData);
+        this.onSendingAllData = onSendingAllData;
     }
 
     private void processIn() {

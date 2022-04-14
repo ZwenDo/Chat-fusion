@@ -1,49 +1,48 @@
 package fr.uge.chatfusion.core.reader;
 
-import fr.uge.chatfusion.core.reader.base.BaseReaders;
 import fr.uge.chatfusion.core.reader.base.Reader;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
-final class SizedReader<E, R> implements Reader<E> {
+final class SizedReader<T, A, R> implements Reader<R> {
     private enum State {
         DONE, WAITING_SIZE, WAITING_CONTENT, ERROR
     }
 
-    public interface Function3<T, U, V, R> {
-        R apply(T t, U u, V v);
-    }
-
     private final Reader<? extends Number> sizeReader;
-    private final Reader<R> reader;
-    private final Function<Integer, ? extends E> factory;
-    private final Function3<Integer, ? super R, ? super E, ? extends E> accumulator;
-    private final Function<? super E, ? extends E> copier;
-    private E result;
+    private final Reader<T> reader;
+    private final Supplier<? extends A> supplier;
+    private final BiConsumer<? super A, ? super T> accumulator;
+    private final Function<? super A, ? extends R> finisher;
+    private A container;
+    private R result;
     private int index;
     private int size;
     private State state = State.WAITING_SIZE;
 
     public SizedReader(
         Reader<? extends Number> sizeReader,
-        Reader<R> reader,
-        Function<Integer, ? extends E> factory,
-        Function3<Integer, ? super R, ? super E, ? extends E> accumulator,
-        Function<? super E, ? extends E> copier
+        Reader<T> reader,
+        Supplier<? extends A> supplier,
+        BiConsumer<? super A, ? super T> accumulator,
+        Function<? super A, ? extends R> finisher
     ) {
         Objects.requireNonNull(sizeReader);
         Objects.requireNonNull(reader);
+        Objects.requireNonNull(supplier);
         Objects.requireNonNull(accumulator);
-        Objects.requireNonNull(factory);
-        Objects.requireNonNull(copier);
+        Objects.requireNonNull(finisher);
         this.sizeReader = sizeReader;
         this.reader = reader;
         this.accumulator = accumulator;
-        this.factory = factory;
-        this.copier = copier;
+        this.supplier = supplier;
+        this.finisher = finisher;
     }
+
 
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
@@ -63,7 +62,7 @@ final class SizedReader<E, R> implements Reader<E> {
             state = State.WAITING_CONTENT;
             size = sizeReader.get().intValue();
             sizeReader.reset();
-            result = factory.apply(size);
+            container = supplier.get();
             index = 0;
         }
 
@@ -77,6 +76,7 @@ final class SizedReader<E, R> implements Reader<E> {
             }
         }
 
+        result = finisher.apply(container);
         state = State.DONE;
         return ProcessStatus.DONE;
     }
@@ -91,7 +91,7 @@ final class SizedReader<E, R> implements Reader<E> {
                 return status;
             }
 
-            result = accumulator.apply(index, reader.get(), result);
+            accumulator.accept(container, reader.get());
             reader.reset();
             index++;
         }
@@ -100,11 +100,11 @@ final class SizedReader<E, R> implements Reader<E> {
     }
 
     @Override
-    public E get() {
+    public R get() {
         if (state != State.DONE) {
             throw new IllegalStateException("Reader is not done");
         }
-        return copier.apply(result);
+        return result;
     }
 
     @Override
@@ -112,5 +112,9 @@ final class SizedReader<E, R> implements Reader<E> {
         sizeReader.reset();
         reader.reset();
         state = State.WAITING_SIZE;
+    }
+
+    void setSize(int size) {
+        this.size = size;
     }
 }

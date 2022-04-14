@@ -10,8 +10,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.nio.channels.*;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -116,11 +118,34 @@ final class Server implements
         }
 
         if (serverName.equals(message.destinationServer())) {
-            serverClient.sendDirectMessage(message, infos);
+            serverClient.sendDirectMessage(message);
         } else {
             serverServer.forwardDirectMessage(message, infos);
         }
 
+    }
+
+    @Override
+    public void sendFile(Frame.FileSending fileSending, IdentifiedRemoteInfo infos) {
+        Objects.requireNonNull(fileSending);
+        Objects.requireNonNull(infos);
+        if (fileSending.block().capacity() > Sizes.MAX_FILE_BLOCK_SIZE) {
+            logMessageAndClose(
+                Level.SEVERE,
+                "File block too long from: "
+                    + fileSending.originServer()
+                    + "/" + fileSending.senderUsername(),
+                infos.address(),
+                infos.connection()
+            );
+            return;
+        }
+
+        if (serverName.equals(fileSending.destinationServer())) {
+            serverClient.sendFile(fileSending);
+        } else {
+            serverServer.forwardFileSending(fileSending, infos);
+        }
     }
 
     @Override

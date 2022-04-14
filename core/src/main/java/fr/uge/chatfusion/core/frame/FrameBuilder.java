@@ -11,10 +11,13 @@ final class FrameBuilder {
     private ByteBuffer buffer = ByteBuffer.allocate(1_024);
 
     public FrameBuilder(FrameOpcode opcode) {
-        buffer.put(opcode.value);
+        buffer.put(opcode.value());
     }
 
     public FrameBuilder addInt(int i) {
+        if (Integer.BYTES > buffer.remaining()) {
+            grow();
+        }
         buffer.putInt(i);
         return this;
     }
@@ -36,6 +39,9 @@ final class FrameBuilder {
         if (inet.length != 4 && inet.length != 16) {
             throw new AssertionError("Impossible address length");
         }
+        if (Byte.BYTES + inet.length + Integer.BYTES > buffer.remaining()) {
+            grow();
+        }
         buffer.put((byte) inet.length);
         buffer.put(inet);
         buffer.putInt(address.getPort());
@@ -44,8 +50,31 @@ final class FrameBuilder {
 
     public FrameBuilder addStringList(List<String> strings) {
         Objects.requireNonNull(strings);
+        if (Integer.BYTES > buffer.remaining()) {
+            grow();
+        }
         buffer.putInt(strings.size());
         strings.forEach(this::addString);
+        return this;
+    }
+
+    public FrameBuilder addBuffer(ByteBuffer buffer) {
+        Objects.requireNonNull(buffer);
+        while (buffer.position() > this.buffer.remaining()) {
+            grow();
+        }
+        var cpy = BufferUtils.copy(buffer);
+        cpy.flip();
+        this.buffer.putInt(cpy.remaining());
+        this.buffer.put(cpy);
+        return this;
+    }
+
+    public FrameBuilder addLong(long l) {
+        if (Long.BYTES > buffer.remaining()) {
+            grow();
+        }
+        buffer.putLong(l);
         return this;
     }
 

@@ -5,6 +5,7 @@ import fr.uge.chatfusion.core.selection.SelectionKeyController;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.util.ArrayDeque;
@@ -15,13 +16,16 @@ final class SocketChannelController {
     private final Selector selector = Selector.open();
     private final SocketChannel socketChannel = SocketChannel.open();
     private final InetSocketAddress serverAddress;
-
+    private final Runnable onConnectFail;
 
     public SocketChannelController(
-        InetSocketAddress serverAddress
+        InetSocketAddress serverAddress,
+        Runnable onConnectFail
     ) throws IOException {
         Objects.requireNonNull(serverAddress);
+        Objects.requireNonNull(onConnectFail);
         this.serverAddress = serverAddress;
+        this.onConnectFail = onConnectFail;
     }
 
     public SelectionKey createSelectionKey() throws IOException {
@@ -71,6 +75,9 @@ final class SocketChannelController {
             if (key.isValid() && key.isReadable()) {
                 ((SelectionKeyController) key.attachment()).doRead();
             }
+        } catch (ConnectException e) {
+            System.out.println("Can't find the server");
+            onConnectFail.run();
         } catch (IOException ioe) {
             throw new UncheckedIOException(ioe);
         }

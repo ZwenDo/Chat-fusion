@@ -49,4 +49,8 @@ public interface FrameVisitor {
     default void visit(Frame.DirectMessage directMessage) {
         throw new UnsupportedOperationException();
     }
+
+    default void visit(Frame.FileSending fileSending) {
+        throw new UnsupportedOperationException();
+    }
 }

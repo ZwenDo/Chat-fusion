@@ -19,6 +19,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -27,7 +28,6 @@ final class ServerToServerController {
     private static final Logger LOGGER = Logger.getLogger(ServerToServerController.class.getName());
 
     private HashMap<String, SelectionKeyController> members = new HashMap<>();
-    private final HashSet<InetSocketAddress> addresses = new HashSet<>();
     private final String serverName;
     private final Server server;
     private final InetSocketAddress address;
@@ -328,16 +328,10 @@ final class ServerToServerController {
             return true;
         }
 
-        var data = Frame.PublicMessage.buffer(
-            message.originServer(),
-            message.senderUsername(),
-            message.message()
-        );
-
         if (leader == null) {
-            sendToAllExcept(data, message.originServer());
+            sendToAllExcept(message.buffer(), message.originServer());
         } else {
-            leader.controller().queueData(data);
+            leader.controller().queueData(message.buffer());
         }
         return true;
     }
@@ -355,25 +349,28 @@ final class ServerToServerController {
         Objects.requireNonNull(infos);
 
         var destinationServer = message.destinationServer();
-        var data = Frame.DirectMessage.buffer(
-            message.originServer(),
-            message.senderUsername(),
-            destinationServer,
-            message.recipientUsername(),
-            message.message()
-        );
+        forwardData(destinationServer, message::buffer);
+    }
 
+    public void forwardFileSending(Frame.FileSending fileSending, IdentifiedRemoteInfo infos) {
+        Objects.requireNonNull(fileSending);
+        Objects.requireNonNull(infos);
+
+        var destinationServer = fileSending.destinationServer();
+        forwardData(destinationServer, fileSending::buffer);
+    }
+
+    private void forwardData(String destinationServer, Supplier<ByteBuffer> data) {
         if (leader != null) {
-            leader.controller().queueData(data);
+            leader.controller().queueData(data.get());
             return;
         }
-
         var recipient = members.get(destinationServer);
-        if (recipient != null) {
-            recipient.queueData(data);
-        } else {
+        if (recipient == null) {
             LOGGER.log(Level.INFO, "Direct message destination server (" + destinationServer + ") not found");
+            return;
         }
+        recipient.queueData(data.get());
     }
 
     private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {

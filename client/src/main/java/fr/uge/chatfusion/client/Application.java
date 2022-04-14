@@ -3,6 +3,7 @@ package fr.uge.chatfusion.client;
 import fr.uge.chatfusion.core.Sizes;
 
 import java.io.IOException;
+import java.nio.file.Path;
 
 final class Application {
     private Application() {
@@ -10,11 +11,11 @@ final class Application {
     }
 
     private static void usage() {
-        System.out.println("Usage : ChatFusionClient <host> <port> <username>");
+        System.out.println("Usage : ChatFusionClient <host> <port> <filePath> <username>");
     }
 
     public static void main(String[] args) throws NumberFormatException, IOException {
-        if (args.length != 3) {
+        if (args.length != 4) {
             usage();
             return;
         }
@@ -22,11 +23,12 @@ final class Application {
         try {
             var host = args[0];
             var port = Integer.parseInt(args[1]);
-            var login = args[2];
+            var filePath = Path.of(args[2]);
+            var login = args[3];
             if (!Sizes.checkUsernameSize(login)) {
                 System.out.println("Username to long (max=" + Sizes.MAX_USERNAME_SIZE + ").");
             }
-            var client = new Client(host, port, login);
+            var client = new Client(host, port, filePath, login);
             client.launch();
         } catch (NumberFormatException e) {
             System.err.println("Invalid port number" + args[1]);

@@ -30,7 +30,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.AnonymousLogin> reader(FrameReaderPart parts) {
+        static Reader<Frame.AnonymousLogin> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(c -> new Frame.AnonymousLogin(c.next()), parts.string());
         }
@@ -54,7 +54,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.LoginAccepted> reader(FrameReaderPart parts) {
+        static Reader<Frame.LoginAccepted> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(c -> new Frame.LoginAccepted(c.next()), parts.string());
         }
@@ -71,7 +71,7 @@ public sealed interface Frame {
             return new FrameBuilder(FrameOpcode.LOGIN_REFUSED).build();
         }
 
-        static Reader<Frame.LoginRefused> reader(FrameReaderPart parts) {
+        static Reader<Frame.LoginRefused> reader(FrameReader.FrameReaderPart parts) {
             return Readers.objectReader(c -> new Frame.LoginRefused());
         }
     }
@@ -105,7 +105,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionInit> reader(FrameReaderPart parts) {
+        static Reader<Frame.FusionInit> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(
                 c -> new Frame.FusionInit(c.next(), c.next(), c.next()),
@@ -143,7 +143,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionInitOk> reader(FrameReaderPart parts) {
+        static Reader<Frame.FusionInitOk> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(
                 c -> new Frame.FusionInitOk(c.next(), c.next(), c.next()),
@@ -165,7 +165,7 @@ public sealed interface Frame {
             return new FrameBuilder(FrameOpcode.FUSION_INIT_KO).build();
         }
 
-        static Reader<Frame.FusionInitKo> reader(FrameReaderPart parts) {
+        static Reader<Frame.FusionInitKo> reader(FrameReader.FrameReaderPart parts) {
             return Readers.objectReader(c -> new Frame.FusionInitKo());
         }
 
@@ -189,7 +189,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionInitFwd> reader(FrameReaderPart parts) {
+        static Reader<Frame.FusionInitFwd> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(c -> new Frame.FusionInitFwd(c.next()), parts.address());
         }
@@ -213,7 +213,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionRequest> reader(FrameReaderPart parts) {
+        static Reader<Frame.FusionRequest> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(c -> new Frame.FusionRequest(c.next()), parts.address());
         }
@@ -240,7 +240,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionChangeLeader> reader(FrameReaderPart parts) {
+        static Reader<Frame.FusionChangeLeader> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(
                 c -> new Frame.FusionChangeLeader(c.next(), c.next()),
@@ -268,7 +268,7 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionMerge> reader(FrameReaderPart parts) {
+        static Reader<Frame.FusionMerge> reader(FrameReader.FrameReaderPart parts) {
             Objects.requireNonNull(parts);
             return Readers.objectReader(c -> new Frame.FusionMerge(c.next()), parts.string());
         }
@@ -289,6 +289,16 @@ public sealed interface Frame {
             visitor.visit(this);
         }
 
+        static Reader<Frame.PublicMessage> reader(FrameReader.FrameReaderPart parts) {
+            Objects.requireNonNull(parts);
+            return Readers.objectReader(
+                c -> new Frame.PublicMessage(c.next(), c.next(), c.next()),
+                parts.string(),
+                parts.string(),
+                parts.string()
+            );
+        }
+
         public static ByteBuffer buffer(String originServer, String senderUsername, String message) {
             Objects.requireNonNull(originServer);
             Objects.requireNonNull(senderUsername);
@@ -300,14 +310,8 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.PublicMessage> reader(FrameReaderPart parts) {
-            Objects.requireNonNull(parts);
-            return Readers.objectReader(
-                c -> new Frame.PublicMessage(c.next(), c.next(), c.next()),
-                parts.string(),
-                parts.string(),
-                parts.string()
-            );
+        public ByteBuffer buffer() {
+            return buffer(originServer, senderUsername, message);
         }
 
         public String format() {
@@ -336,6 +340,19 @@ public sealed interface Frame {
             visitor.visit(this);
         }
 
+        static Reader<Frame.DirectMessage> reader(FrameReader.FrameReaderPart parts) {
+            Objects.requireNonNull(parts);
+            var stringReader = parts.string();
+            return Readers.objectReader(
+                c -> new Frame.DirectMessage(c.next(), c.next(), c.next(), c.next(), c.next()),
+                stringReader,
+                stringReader,
+                stringReader,
+                stringReader,
+                stringReader
+            );
+        }
+
         public static ByteBuffer buffer(
             String originServer,
             String senderUsername,
@@ -357,20 +374,103 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.DirectMessage> reader(FrameReaderPart parts) {
-            Objects.requireNonNull(parts);
-            return Readers.objectReader(
-                c -> new Frame.DirectMessage(c.next(), c.next(), c.next(), c.next(), c.next()),
-                parts.string(),
-                parts.string(),
-                parts.string(),
-                parts.string(),
-                parts.string()
-            );
+        public ByteBuffer buffer() {
+            return buffer(originServer, senderUsername, destinationServer, recipientUsername, message);
         }
 
         public String format() {
             return "[" + originServer + "] " + senderUsername + " whispers to you: " + message;
+        }
+    }
+
+    record FileSending(
+        String originServer,
+        String senderUsername,
+        String destinationServer,
+        String recipientUsername,
+        long fileId,
+        String fileName,
+        int blockCount,
+        ByteBuffer block
+    ) implements Frame {
+        public FileSending {
+            Objects.requireNonNull(originServer);
+            Objects.requireNonNull(senderUsername);
+            Objects.requireNonNull(destinationServer);
+            Objects.requireNonNull(recipientUsername);
+            Objects.requireNonNull(fileName);
+            if (blockCount <= 0) {
+                throw new IllegalArgumentException("blockCount must be positive");
+            }
+            Objects.requireNonNull(block);
+        }
+
+        public static ByteBuffer buffer(
+            String originServer,
+            String senderUsername,
+            String destinationServer,
+            String recipientUsername,
+            long fileId,
+            String fileName,
+            int blockCount,
+            ByteBuffer block
+        ) {
+            Objects.requireNonNull(originServer);
+            Objects.requireNonNull(senderUsername);
+            Objects.requireNonNull(destinationServer);
+            Objects.requireNonNull(recipientUsername);
+            Objects.requireNonNull(fileName);
+            if (blockCount <= 0) {
+                throw new IllegalArgumentException("blockCount must be positive");
+            }
+            Objects.requireNonNull(block);
+            return new FrameBuilder(FrameOpcode.FILE_SENDING)
+                .addString(originServer)
+                .addString(senderUsername)
+                .addString(destinationServer)
+                .addString(recipientUsername)
+                .addLong(fileId)
+                .addString(fileName)
+                .addInt(blockCount)
+                .addBuffer(block)
+                .build();
+        }
+
+        static Reader<Frame.FileSending> buffer(FrameReader.FrameReaderPart parts) {
+            var stringReader = parts.string();
+            Objects.requireNonNull(parts);
+            return Readers.objectReader(
+                c -> new Frame.FileSending(
+                    c.next(), c.next(), c.next(), c.next(), c.next(), c.next(), c.next(), c.next()
+                ),
+                stringReader,
+                stringReader,
+                stringReader,
+                stringReader,
+                parts.longInteger(),
+                stringReader,
+                parts.integer(),
+                parts.byteBuffer()
+            );
+        }
+
+        @Override
+        public void accept(FrameVisitor visitor) {
+            Objects.requireNonNull(visitor);
+            visitor.visit(this);
+        }
+
+        public ByteBuffer buffer() {
+            return buffer(
+                originServer,
+                senderUsername,
+                destinationServer,
+                recipientUsername,
+                fileId,
+                fileName,
+                blockCount,
+                block
+            );
         }
     }
     //endregion
