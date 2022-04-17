@@ -19,7 +19,7 @@ final class ClientKeyController implements SelectionKeyController {
     private final SelectionKeyControllerImpl inner;
 
     public ClientKeyController(SelectionKey key, InetSocketAddress remoteAddress) {
-        inner = new SelectionKeyControllerImpl(key, remoteAddress, false, false);
+        inner = new SelectionKeyControllerImpl(key, remoteAddress, false, false, true);
         inner.setOnSendingAllData(this::processOut);
     }
 

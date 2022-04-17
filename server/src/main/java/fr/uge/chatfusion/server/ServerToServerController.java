@@ -228,7 +228,7 @@ final class ServerToServerController {
                 return;
             }
             var key = factory.apply(sc);
-            var ctx = new SelectionKeyControllerImpl(key, remote, false, true);
+            var ctx = new SelectionKeyControllerImpl(key, remote, false, true, false);
             var infos = new UnknownRemoteInfo(sc, remote, ctx);
             ctx.setVisitor(Visitors.pendingFusionVisitor(server, infos));
             ctx.setOnClose(() -> {
@@ -282,7 +282,7 @@ final class ServerToServerController {
         var key = factory.apply(sc);
 
         // creating the context and setting it as leader
-        var ctx = new SelectionKeyControllerImpl(key, newLeader.leaderAddress(), false, true);
+        var ctx = new SelectionKeyControllerImpl(key, newLeader.leaderAddress(), false, true, false);
         var leaderInfos = new IdentifiedRemoteInfo(newLeader.leaderName(), sc, newLeader.leaderAddress());
         ctx.setVisitor(Visitors.fusedServerVisitor(server, leaderInfos));
         key.attach(ctx);

@@ -24,9 +24,14 @@ final class Application {
             var host = args[0];
             var port = Integer.parseInt(args[1]);
             var filePath = Path.of(args[2]);
+            if (!filePath.toFile().isDirectory()) {
+                System.out.println("File path must be a directory.");
+                return;
+            }
             var login = args[3];
             if (!Sizes.checkUsernameSize(login)) {
                 System.out.println("Username to long (max=" + Sizes.MAX_USERNAME_SIZE + ").");
+                return;
             }
             var client = new Client(host, port, filePath, login);
             client.launch();

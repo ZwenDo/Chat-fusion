@@ -23,8 +23,8 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
     private final SelectionKey key;
     private final SocketChannel sc;
     private final InetSocketAddress remoteAddress;
-    private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
-    private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
+    private final ByteBuffer bufferIn;
+    private final ByteBuffer bufferOut;
     private final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
     private final Reader<Frame> reader = Frame.reader();
     private final boolean logging;
@@ -41,7 +41,8 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         SelectionKey key,
         InetSocketAddress remoteAddress,
         boolean isConnected,
-        boolean logging
+        boolean logging,
+        boolean isDirect
     ) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(remoteAddress);
@@ -50,6 +51,13 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         this.remoteAddress = remoteAddress;
         this.connected = isConnected;
         this.logging = logging;
+        if (isDirect) {
+            bufferIn = ByteBuffer.allocateDirect(BUFFER_SIZE);
+            bufferOut = ByteBuffer.allocateDirect(BUFFER_SIZE);
+        } else {
+            bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
+            bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
+        }
         updateInterestOps();
     }
 

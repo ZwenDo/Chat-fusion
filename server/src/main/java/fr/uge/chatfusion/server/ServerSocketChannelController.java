@@ -103,7 +103,13 @@ final class ServerSocketChannelController {
         sc.configureBlocking(false);
         var skey = sc.register(selector, SelectionKey.OP_READ);
         var remoteAddress = (InetSocketAddress) sc.getRemoteAddress();
-        var controller = new SelectionKeyControllerImpl(skey, remoteAddress, true, true);
+        var controller = new SelectionKeyControllerImpl(
+            skey,
+            remoteAddress,
+            true,
+            true,
+            false
+        );
         var infos = new UnknownRemoteInfo(sc, remoteAddress, controller);
         var visitor = Visitors.defaultVisitor(server, infos);
         controller.setVisitor(visitor);
