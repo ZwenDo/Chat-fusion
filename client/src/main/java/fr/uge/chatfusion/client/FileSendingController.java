@@ -1,14 +1,13 @@
 package fr.uge.chatfusion.client;
 
 
-import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.base.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Objects;
@@ -29,25 +28,18 @@ final class FileSendingController {
             leftToSend = currentFile.blockCount();
         }
 
-        var blockBuffer = ByteBuffer.allocate(Sizes.MAX_FILE_BLOCK_SIZE);
+        byte[] data;
         try {
-            currentFile.channel().read(blockBuffer);
+            data = currentFile.stream().readNBytes(Sizes.MAX_FILE_BLOCK_SIZE);
+            //currentFile.stream().read(blockBuffer.array());
         } catch (IOException e) {
             System.out.println("Error while reading file " + currentFile.filePath());
             currentFile = null;
             return Optional.empty();
         }
-
-        var buffer = Frame.FileSending.buffer(
-            currentFile.originServer(),
-            currentFile.sender(),
-            currentFile.destinationServer(),
-            currentFile.recipient(),
-            currentFile.id(),
-            currentFile.filePath().getFileName().toString(),
-            currentFile.blockCount(),
-            blockBuffer
-        );
+        var blockBuffer = ByteBuffer.wrap(data).compact();
+        // TODO System.out.println("Sending block " + (currentFile.blockCount() - leftToSend) + " of " + currentFile.blockCount());
+        var buffer = currentFile.toFrame(blockBuffer);
         leftToSend--;
         return Optional.of(buffer);
     }
@@ -66,13 +58,9 @@ final class FileSendingController {
         Objects.requireNonNull(filePath);
         var id = new Random().nextLong();
         try {
-            var channel = Files.newByteChannel(filePath);
-            var size = channel.size();
-            if (size == 0) {
-                System.out.println("File " + filePath + " is empty");
-                return;
-            }
-
+            var file = filePath.toFile();
+            var stream = new FileInputStream(file);
+            var size = file.length();
             var blockCount = 1 + (int) size / Sizes.MAX_FILE_BLOCK_SIZE;
             var data = new FileData(
                 originServer,
@@ -82,13 +70,11 @@ final class FileSendingController {
                 filePath,
                 id,
                 blockCount,
-                channel
+                stream
             );
             queuedFiles.add(data);
-        } catch (NoSuchFileException e) {
+        } catch (FileNotFoundException e) {
             System.out.println("File " + filePath + " does not exist");
-        } catch (IOException e) {
-            System.out.println("Error while opening file " + filePath);
         }
     }
 
@@ -100,7 +86,20 @@ final class FileSendingController {
         Path filePath,
         long id,
         int blockCount,
-        SeekableByteChannel channel
+        FileInputStream stream
     ) {
+        public ByteBuffer toFrame(ByteBuffer block) {
+            Objects.requireNonNull(block);
+            return Frame.FileSending.buffer(
+                originServer,
+                sender,
+                destinationServer,
+                recipient,
+                id,
+                filePath.getFileName().toString(),
+                blockCount,
+                block
+            );
+        }
     }
 }

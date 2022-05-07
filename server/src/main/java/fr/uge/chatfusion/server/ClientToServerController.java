@@ -1,7 +1,7 @@
 package fr.uge.chatfusion.server;
 
-import fr.uge.chatfusion.core.CloseableUtils;
-import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.base.CloseableUtils;
+import fr.uge.chatfusion.core.base.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.server.visitor.IdentifiedRemoteInfo;

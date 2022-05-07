@@ -28,13 +28,13 @@ final class UniqueVisitor implements FrameVisitor {
     @Override
     public void visit(Frame.PublicMessage publicMessage) {
         Objects.requireNonNull(publicMessage);
-        System.out.println(publicMessage.format());
+        client.receivePublicMessage(publicMessage);
     }
 
     @Override
     public void visit(Frame.DirectMessage directMessage) {
         Objects.requireNonNull(directMessage);
-        System.out.println(directMessage.format());
+        client.receiveDirectMessage(directMessage);
     }
 
     @Override

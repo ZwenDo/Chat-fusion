@@ -1,4 +1,4 @@
-package fr.uge.chatfusion.core;
+package fr.uge.chatfusion.core.base;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;

@@ -1,6 +1,6 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.CloseableUtils;
+import fr.uge.chatfusion.core.base.CloseableUtils;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 
 import java.io.IOException;

@@ -1,6 +1,6 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.base.Sizes;
 
 import java.io.IOException;
 import java.nio.file.Path;

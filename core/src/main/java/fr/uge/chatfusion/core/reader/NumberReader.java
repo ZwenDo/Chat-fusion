@@ -1,11 +1,17 @@
-package fr.uge.chatfusion.core.reader.base;
+package fr.uge.chatfusion.core.reader;
 
-import fr.uge.chatfusion.core.BufferUtils;
+
+import fr.uge.chatfusion.core.base.BufferUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.function.Function;
 
+/**
+ * A common class for all {@link Number} readers.
+ *
+ * @param <E> The type of the number to read.
+ */
 final class NumberReader<E extends Number> implements Reader<E> {
     private enum State {
         DONE, WAITING

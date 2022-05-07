@@ -1,6 +1,6 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.base.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
 
 import java.io.IOException;
@@ -39,7 +39,6 @@ final class Client {
         });
         var data = Frame.AnonymousLogin.buffer(login);
         context.queueData(data);
-        context.processOut();
         key.attach(context);
         controller.launch();
     }
@@ -47,6 +46,19 @@ final class Client {
     public void shutdown() {
         System.out.println("Shutting down the client...");
         controller.shutdown();
+    }
+
+    private static boolean checkMessageSize(String message) {
+        var isValid = Sizes.checkMessageSize(message);
+        if (!isValid) {
+            System.out.println("Message too long ! (max = " + Sizes.MAX_MESSAGE_SIZE + ")");
+        }
+        return isValid;
+    }
+
+    public void loginRefused() {
+        System.out.println("Login failed. Closing the client...");
+        shutdown();
     }
 
     public void loginAccepted(String serverName) {
@@ -62,7 +74,7 @@ final class Client {
             return;
         }
         System.out.println(
-            "Login successful. Welcome on "
+            "Login successful. Welcome to "
                 + serverName
                 + " "
                 + login
@@ -75,42 +87,50 @@ final class Client {
         console.start();
     }
 
-    public void loginRefused() {
-        System.out.println("Login failed. Closing the client...");
-        shutdown();
-    }
-
     public void sendMessage(String input) {
         Objects.requireNonNull(input);
-        if (!Sizes.checkMessageSize(input)) {
-            System.out.println("Message too long !");
+        if (!checkMessageSize(input)) {
             return;
         }
         var data = Frame.PublicMessage.buffer(serverName, login, input);
-        context.queueData(data);
-        controller.addCommand(context::processOut);
+        controller.addCommand(() -> context.queueData(data));
     }
 
     public void sendDirectMessage(String dstSrv, String dstUser, String message) {
         Objects.requireNonNull(dstSrv);
         Objects.requireNonNull(dstUser);
         Objects.requireNonNull(message);
-        if (!Sizes.checkMessageSize(message)) {
-            System.out.println("Message too long !");
+        if (serverName.equals(dstSrv) && login.equals(dstUser)) {
+            System.out.println("You can't send a message to yourself !");
+            return;
+        }
+        if (!checkMessageSize(message)) {
             return;
         }
         var data = Frame.DirectMessage.buffer(serverName, login, dstSrv, dstUser, message);
-        context.queueData(data);
-        controller.addCommand(context::processOut);
+        controller.addCommand(() -> context.queueData(data));
     }
 
     public void receiveFileBlock(Frame.FileSending fileSending) {
+        Objects.requireNonNull(fileSending);
         try {
             fileReceivingController.receiveFileBlock(fileSending);
         } catch (IOException e) {
-            e.printStackTrace();
+            fileReceivingController.stopReceiving(fileSending);
             System.out.println("Error while receiving file");
         }
+    }
+
+    public void receivePublicMessage(Frame.PublicMessage publicMessage) {
+        Objects.requireNonNull(publicMessage);
+        var message = DateTimeUtils.printWithDateTime(publicMessage.format());
+        System.out.println(message);
+    }
+
+    public void receiveDirectMessage(Frame.DirectMessage directMessage) {
+        Objects.requireNonNull(directMessage);
+        var message = DateTimeUtils.printWithDateTime(directMessage.format());
+        System.out.println(message);
     }
 
     public void sendFile(String dstSrv, String dstUser, Path filePath) {
@@ -125,7 +145,6 @@ final class Client {
             System.out.println("You can't send a file to yourself !");
             return;
         }
-        context.queueFile(serverName, login, dstSrv, dstUser, filePath);
-        controller.addCommand(context::processOut);
+        controller.addCommand(() -> context.queueFile(serverName, login, dstSrv, dstUser, filePath));
     }
 }

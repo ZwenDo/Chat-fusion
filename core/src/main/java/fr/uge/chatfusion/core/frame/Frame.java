@@ -1,18 +1,42 @@
 package fr.uge.chatfusion.core.frame;
 
+
+import fr.uge.chatfusion.core.reader.Reader;
 import fr.uge.chatfusion.core.reader.Readers;
-import fr.uge.chatfusion.core.reader.base.Reader;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 public sealed interface Frame {
     void accept(FrameVisitor visitor);
 
     static Reader<Frame> reader() {
-        return new FrameReader();
+        var byteReader = Readers.byteReader();
+        var opcodeToReader = opcodeToReader(byteReader);
+        return byteReader.map(b -> {
+            byteReader.reset();
+            return opcodeToReader.apply(b);
+        });
+    }
+
+    private static Function<Byte, Reader<? extends Frame>> opcodeToReader(Reader<Byte> byteReader) {
+        var parts = FrameReaderPart.create(byteReader);
+        @SuppressWarnings("unchecked")
+        var readers = (Reader<Frame>[]) Arrays.stream(FrameOpcode.values())
+            .map(op -> op.reader(parts))
+            .toArray(Reader[]::new);
+
+        return b -> {
+            try {
+                return readers[FrameOpcode.get(b).ordinal()];
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException("Unknown opcode: " + b);
+            }
+        };
     }
 
     //region Client frames
@@ -30,9 +54,9 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.AnonymousLogin> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.AnonymousLogin> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(c -> new Frame.AnonymousLogin(c.next()), parts.string());
+            return parts.string().andFinally(AnonymousLogin::new);
         }
     }
 
@@ -54,11 +78,12 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.LoginAccepted> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.LoginAccepted> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(c -> new Frame.LoginAccepted(c.next()), parts.string());
+            return parts.string().andFinally(LoginAccepted::new);
         }
     }
+    //endregion
 
     record LoginRefused() implements Frame {
         @Override
@@ -71,11 +96,11 @@ public sealed interface Frame {
             return new FrameBuilder(FrameOpcode.LOGIN_REFUSED).build();
         }
 
-        static Reader<Frame.LoginRefused> reader(FrameReader.FrameReaderPart parts) {
-            return Readers.objectReader(c -> new Frame.LoginRefused());
+        static Reader<Frame.LoginRefused> reader(FrameReaderPart parts) {
+            Objects.requireNonNull(parts);
+            return Readers.directReader(Frame.LoginRefused::new);
         }
     }
-    //endregion
 
     //region Server frames
     record FusionInit(String serverName, InetSocketAddress serverAddress, List<String> members) implements Frame {
@@ -105,14 +130,17 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionInit> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.FusionInit> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(
-                c -> new Frame.FusionInit(c.next(), c.next(), c.next()),
-                parts.string(),
-                parts.address(),
-                parts.stringList()
-            );
+            var ctx = new Object() {
+                String serverName;
+                InetSocketAddress serverAddress;
+            };
+
+            return parts.string()
+                .andThen(parts.address(), s -> ctx.serverName = s)
+                .andThen(parts.stringList(), a -> ctx.serverAddress = a)
+                .andFinally(l -> new Frame.FusionInit(ctx.serverName, ctx.serverAddress, l));
         }
     }
 
@@ -143,14 +171,17 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionInitOk> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.FusionInitOk> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(
-                c -> new Frame.FusionInitOk(c.next(), c.next(), c.next()),
-                parts.string(),
-                parts.address(),
-                parts.stringList()
-            );
+            var ctx = new Object() {
+                String serverName;
+                InetSocketAddress serverAddress;
+            };
+
+            return parts.string()
+                .andThen(parts.address(), s -> ctx.serverName = s)
+                .andThen(parts.stringList(), a -> ctx.serverAddress = a)
+                .andFinally(l -> new Frame.FusionInitOk(ctx.serverName, ctx.serverAddress, l));
         }
     }
 
@@ -165,8 +196,9 @@ public sealed interface Frame {
             return new FrameBuilder(FrameOpcode.FUSION_INIT_KO).build();
         }
 
-        static Reader<Frame.FusionInitKo> reader(FrameReader.FrameReaderPart parts) {
-            return Readers.objectReader(c -> new Frame.FusionInitKo());
+        static Reader<Frame.FusionInitKo> reader(FrameReaderPart parts) {
+            Objects.requireNonNull(parts);
+            return Readers.directReader(Frame.FusionInitKo::new);
         }
 
     }
@@ -189,9 +221,9 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionInitFwd> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.FusionInitFwd> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(c -> new Frame.FusionInitFwd(c.next()), parts.address());
+            return parts.address().andFinally(FusionInitFwd::new);
         }
     }
 
@@ -213,9 +245,9 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionRequest> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.FusionRequest> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(c -> new Frame.FusionRequest(c.next()), parts.address());
+            return parts.address().andFinally(FusionRequest::new);
         }
     }
 
@@ -240,15 +272,18 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionChangeLeader> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.FusionChangeLeader> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(
-                c -> new Frame.FusionChangeLeader(c.next(), c.next()),
-                parts.string(),
-                parts.address()
-            );
+            var ctx = new Object() {
+                String leaderName;
+            };
+
+            return parts.string()
+                .andThen(parts.address(), s -> ctx.leaderName = s)
+                .andFinally(a -> new FusionChangeLeader(ctx.leaderName, a));
         }
     }
+    //endregion
 
     record FusionMerge(String name) implements Frame {
         public FusionMerge {
@@ -268,12 +303,11 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FusionMerge> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.FusionMerge> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(c -> new Frame.FusionMerge(c.next()), parts.string());
+            return parts.string().andFinally(FusionMerge::new);
         }
     }
-    //endregion
 
     //region Common frames
     record PublicMessage(String originServer, String senderUsername, String message) implements Frame {
@@ -289,14 +323,17 @@ public sealed interface Frame {
             visitor.visit(this);
         }
 
-        static Reader<Frame.PublicMessage> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.PublicMessage> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(
-                c -> new Frame.PublicMessage(c.next(), c.next(), c.next()),
-                parts.string(),
-                parts.string(),
-                parts.string()
-            );
+            var ctx = new Object() {
+                String originServer;
+                String senderUsername;
+            };
+
+            return parts.string()
+                .andThen(parts.string(), s -> ctx.originServer = s)
+                .andThen(parts.string(), s -> ctx.senderUsername = s)
+                .andFinally(s -> new PublicMessage(ctx.originServer, ctx.senderUsername, s));
         }
 
         public static ByteBuffer buffer(String originServer, String senderUsername, String message) {
@@ -340,17 +377,27 @@ public sealed interface Frame {
             visitor.visit(this);
         }
 
-        static Reader<Frame.DirectMessage> reader(FrameReader.FrameReaderPart parts) {
+        static Reader<Frame.DirectMessage> reader(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            var stringReader = parts.string();
-            return Readers.objectReader(
-                c -> new Frame.DirectMessage(c.next(), c.next(), c.next(), c.next(), c.next()),
-                stringReader,
-                stringReader,
-                stringReader,
-                stringReader,
-                stringReader
-            );
+            var ctx = new Object() {
+                String originServer;
+                String senderUsername;
+                String destinationServer;
+                String recipientUsername;
+            };
+
+            var str = parts.string();
+            return str.andThen(str, s -> ctx.originServer = s)
+                .andThen(str, s -> ctx.senderUsername = s)
+                .andThen(str, s -> ctx.destinationServer = s)
+                .andThen(str, s -> ctx.recipientUsername = s)
+                .andFinally(s -> new DirectMessage(
+                    ctx.originServer,
+                    ctx.senderUsername,
+                    ctx.destinationServer,
+                    ctx.recipientUsername,
+                    s
+                ));
         }
 
         public static ByteBuffer buffer(
@@ -382,6 +429,7 @@ public sealed interface Frame {
             return "[" + originServer + "] " + senderUsername + " whispers to you: " + message;
         }
     }
+    //endregion
 
     record FileSending(
         String originServer,
@@ -436,22 +484,36 @@ public sealed interface Frame {
                 .build();
         }
 
-        static Reader<Frame.FileSending> buffer(FrameReader.FrameReaderPart parts) {
-            var stringReader = parts.string();
+        static Reader<Frame.FileSending> buffer(FrameReaderPart parts) {
             Objects.requireNonNull(parts);
-            return Readers.objectReader(
-                c -> new Frame.FileSending(
-                    c.next(), c.next(), c.next(), c.next(), c.next(), c.next(), c.next(), c.next()
-                ),
-                stringReader,
-                stringReader,
-                stringReader,
-                stringReader,
-                parts.longInteger(),
-                stringReader,
-                parts.integer(),
-                parts.byteBuffer()
-            );
+            var ctx = new Object() {
+                String originServer;
+                String senderUsername;
+                String destinationServer;
+                String recipientUsername;
+                long fileId;
+                String fileName;
+                int blockCount;
+            };
+
+            var str = parts.string();
+            return str.andThen(str, s -> ctx.originServer = s)
+                .andThen(str, s -> ctx.senderUsername = s)
+                .andThen(str, s -> ctx.destinationServer = s)
+                .andThen(parts.longInteger(), s -> ctx.recipientUsername = s)
+                .andThen(str, l -> ctx.fileId = l)
+                .andThen(parts.integer(), s -> ctx.fileName = s)
+                .andThen(parts.byteBuffer(), i -> ctx.blockCount = i)
+                .andFinally(b -> new Frame.FileSending(
+                    ctx.originServer,
+                    ctx.senderUsername,
+                    ctx.destinationServer,
+                    ctx.recipientUsername,
+                    ctx.fileId,
+                    ctx.fileName,
+                    ctx.blockCount,
+                    b
+                ));
         }
 
         @Override
@@ -473,5 +535,5 @@ public sealed interface Frame {
             );
         }
     }
-    //endregion
+
 }

@@ -1,7 +1,7 @@
 package fr.uge.chatfusion.server;
 
-import fr.uge.chatfusion.core.CloseableUtils;
-import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.base.CloseableUtils;
+import fr.uge.chatfusion.core.base.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.server.visitor.*;
 
@@ -256,14 +256,16 @@ final class Server implements
     }
 
     void info() {
-        System.out.println(
-            "Server Information:\nName = "
-                + serverName + " (" + address + ")\n"
-                + "\n"
-                + serverServer.info()
-                + "\n" +
-                serverClient.info()
-        );
+        controller.addCommand(() -> {
+            System.out.println(
+                "Server Information:\nName = "
+                    + serverName + " (" + address + ")\n"
+                    + "\n"
+                    + serverServer.info()
+                    + "\n" +
+                    serverClient.info()
+            );
+        });
     }
 
     private SelectionKey connectTo(SocketChannel channel) {

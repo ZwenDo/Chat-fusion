@@ -15,8 +15,8 @@ final class ServerConsole implements Runnable {
     @Override
     public void run() {
         try (var scanner = new Scanner(System.in)) {
-            while (scanner.hasNext()) {
-                var input = scanner.next();
+            while (scanner.hasNextLine()) {
+                var input = scanner.nextLine();
 
                 switch (input) {
                     case "INFO" -> server.info();
@@ -25,24 +25,26 @@ final class ServerConsole implements Runnable {
                         server.shutdownNow();
                         return;
                     }
-                    case "FUSION" -> fusion(scanner);
-                    default -> System.out.println("Unknown command: " + input);
+                    default -> {
+                        if (input.startsWith("FUSION")) {
+                            fusion(input);
+                        } else {
+                            System.out.println("Unknown command: " + input);
+                        }
+                    }
                 }
             }
         }
     }
 
-    private void fusion(Scanner scanner) {
-        if (!scanner.hasNext()) {
+    private void fusion(String input) {
+        var args = input.split(" ");
+        if (args.length < 3) {
             System.out.println("Usage: FUSION <host> <port>");
             return;
         }
-        var host = scanner.next();
-        if (!scanner.hasNext()) {
-            System.out.println("Usage: FUSION <host> <port>");
-            return;
-        }
-        var strPort = scanner.next();
+        var host = args[1];
+        var strPort = args[2];
         try {
             var port = Integer.parseInt(strPort);
             var address = new InetSocketAddress(host, port);

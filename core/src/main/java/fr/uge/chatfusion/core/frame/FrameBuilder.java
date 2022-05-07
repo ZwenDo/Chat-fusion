@@ -1,6 +1,6 @@
 package fr.uge.chatfusion.core.frame;
 
-import fr.uge.chatfusion.core.BufferUtils;
+import fr.uge.chatfusion.core.base.BufferUtils;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;

@@ -1,26 +1,32 @@
-package fr.uge.chatfusion.core.reader.base;
+package fr.uge.chatfusion.core.reader;
 
 
-import fr.uge.chatfusion.core.BufferUtils;
-import fr.uge.chatfusion.core.Charsets;
+import fr.uge.chatfusion.core.base.BufferUtils;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Objects;
 
+/**
+ * A reader that reads a {@link String}.
+ */
 final class StringReader implements Reader<String> {
     private enum State {
         DONE, WAITING_SIZE, WAITING_TEXT, ERROR
     }
 
-    private State state = State.WAITING_SIZE;
+    private final Reader<Integer> sizeReader = Readers.intReader();
+    private final Charset charset;
     private final ByteBuffer textBuffer;
-    private final Reader<Integer> sizeReader = BaseReaders.intReader();
+    private State state = State.WAITING_SIZE;
     private String text;
 
-    public StringReader(int maxTextLength) {
+    public StringReader(Charset charset, int maxTextLength) {
+        Objects.requireNonNull(charset);
         if (maxTextLength < 0) {
             throw new IllegalArgumentException("maxTextLength must be positive.");
         }
+        this.charset = charset;
         textBuffer = ByteBuffer.allocate(maxTextLength);
     }
 
@@ -71,7 +77,7 @@ final class StringReader implements Reader<String> {
         BufferUtils.transferTo(buffer, textBuffer);
         if (!textBuffer.hasRemaining()) {
             textBuffer.flip();
-            text = Charsets.DEFAULT_CHARSET.decode(textBuffer).toString();
+            text = charset.decode(textBuffer).toString();
             textBuffer.compact();
         }
     }

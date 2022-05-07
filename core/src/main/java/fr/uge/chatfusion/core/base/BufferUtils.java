@@ -1,4 +1,4 @@
-package fr.uge.chatfusion.core;
+package fr.uge.chatfusion.core.base;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;

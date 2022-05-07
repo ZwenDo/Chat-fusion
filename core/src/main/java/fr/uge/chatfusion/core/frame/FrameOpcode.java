@@ -1,6 +1,7 @@
 package fr.uge.chatfusion.core.frame;
 
-import fr.uge.chatfusion.core.reader.base.Reader;
+
+import fr.uge.chatfusion.core.reader.Reader;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -26,17 +27,20 @@ enum FrameOpcode {
     ;
 
     private final byte value;
-    private final Function<FrameReader.FrameReaderPart, Reader<? extends Frame>> readerConstructor;
+    private final Function<FrameReaderPart, Reader<? extends Frame>> readerConstructor;
 
-    FrameOpcode(int value, Function<FrameReader.FrameReaderPart, Reader<? extends Frame>> readerConstructor) {
+    FrameOpcode(int value, Function<FrameReaderPart, Reader<? extends Frame>> readerConstructor) {
+        if (value < 0 || value > 255) {
+            throw new IllegalArgumentException("Opcode must be between 0 and 255");
+        }
         Objects.requireNonNull(readerConstructor);
         this.value = (byte) value;
         this.readerConstructor = readerConstructor;
     }
 
     @SuppressWarnings("unchecked")
-    public Reader<Frame> reader(FrameReader.FrameReaderPart part) {
-        Objects.requireNonNull(readerConstructor);
+    public Reader<Frame> reader(FrameReaderPart part) {
+        Objects.requireNonNull(part);
         return (Reader<Frame>) readerConstructor.apply(part);
     }
 

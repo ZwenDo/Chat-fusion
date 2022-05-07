@@ -1,6 +1,6 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.BufferUtils;
+import fr.uge.chatfusion.core.base.BufferUtils;
 import fr.uge.chatfusion.core.frame.FrameVisitor;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
@@ -41,9 +41,8 @@ final class ClientKeyController implements SelectionKeyController {
     @Override
     public void queueData(ByteBuffer data) {
         Objects.requireNonNull(data);
-        synchronized (messageQueue) {
-            messageQueue.add(BufferUtils.copy(data));
-        }
+        messageQueue.add(BufferUtils.copy(data));
+        processOut();
     }
 
     @Override
@@ -67,9 +66,7 @@ final class ClientKeyController implements SelectionKeyController {
         Objects.requireNonNull(dstSrv);
         Objects.requireNonNull(dstUser);
         Objects.requireNonNull(filePath);
-        synchronized (fileSendingController) {
-            fileSendingController.sendFile(originSrv, sender, dstSrv, dstUser, filePath);
-        }
+        fileSendingController.sendFile(originSrv, sender, dstSrv, dstUser, filePath);
         processOut();
     }
 
@@ -81,12 +78,10 @@ final class ClientKeyController implements SelectionKeyController {
         inner.setOnClose(onClose);
     }
 
-    public void processOut() {
-        synchronized (messageQueue) {
-            while (!messageQueue.isEmpty()) {
-                inner.queueData(messageQueue.pop());
-            }
-            fileSendingController.nextFileSendingFrame().ifPresent(inner::queueData);
+    private void processOut() {
+        while (!messageQueue.isEmpty()) {
+            inner.queueData(messageQueue.pop());
         }
+        fileSendingController.nextFileSendingFrame().ifPresent(inner::queueData);
     }
 }

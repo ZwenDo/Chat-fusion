@@ -1,6 +1,6 @@
 package fr.uge.chatfusion.server;
 
-import fr.uge.chatfusion.core.CloseableUtils;
+import fr.uge.chatfusion.core.base.CloseableUtils;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
 import fr.uge.chatfusion.server.visitor.UnknownRemoteInfo;

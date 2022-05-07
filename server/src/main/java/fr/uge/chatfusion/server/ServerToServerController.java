@@ -1,8 +1,8 @@
 package fr.uge.chatfusion.server;
 
-import fr.uge.chatfusion.core.BufferUtils;
-import fr.uge.chatfusion.core.CloseableUtils;
-import fr.uge.chatfusion.core.Sizes;
+import fr.uge.chatfusion.core.base.BufferUtils;
+import fr.uge.chatfusion.core.base.CloseableUtils;
+import fr.uge.chatfusion.core.base.Sizes;
 import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
@@ -48,7 +48,15 @@ final class ServerToServerController {
     public void tryFusion(Frame.FusionInit fusionInit, UnknownRemoteInfo infos) {
         Objects.requireNonNull(fusionInit);
         Objects.requireNonNull(infos);
-        // TODO check isFusing
+        if (isFusing) {
+            logMessageAndClose(
+                Level.WARNING,
+                "Fusion already in progress",
+                infos.address(),
+                infos.connection()
+            );
+            return;
+        }
 
         var ctx = infos.controller();
         // check if server is the leader
@@ -116,6 +124,10 @@ final class ServerToServerController {
         var serverInfos = new IdentifiedRemoteInfo(fusionMerge.name(), infos.connection(), infos.address());
         ctx.setVisitor(Visitors.fusedServerVisitor(server, serverInfos));
         members.put(name, infos.controller());
+        if (futureMembers.isEmpty()) {
+            LOGGER.log(Level.INFO, "Fusion complete");
+            isFusing = false;
+        }
     }
 
     private boolean checkFusion(
@@ -175,7 +187,6 @@ final class ServerToServerController {
             LOGGER.log(Level.INFO, "Still leader");
             members.put(remoteName, other);
             futureMembers.addAll(remoteMembers);
-            isFusing = false;
             return;
         }
 
@@ -207,7 +218,7 @@ final class ServerToServerController {
         Objects.requireNonNull(remote);
         Objects.requireNonNull(factory);
         if (isFusing) {
-            LOGGER.log(Level.WARNING, "Already fusing, ignoring..."); // TODO requeue the request
+            LOGGER.log(Level.WARNING, "Already fusing, ignoring...");
             return;
         }
         isFusing = true;
@@ -217,29 +228,34 @@ final class ServerToServerController {
             var data = Frame.FusionRequest.buffer(remote);
             leader.controller().queueData(data);
         } else {
-            LOGGER.log(Level.INFO, "Sending fusion request...");
-            var sc = SocketChannel.open();
-            sc.configureBlocking(false);
-            try {
-                sc.connect(remote);
-            } catch (UnresolvedAddressException e) {
-                LOGGER.log(Level.INFO, "Unknown address: " + remote);
-                isFusing = false;
-                return;
-            }
-            var key = factory.apply(sc);
-            var ctx = new SelectionKeyControllerImpl(key, remote, false, true, false);
-            var infos = new UnknownRemoteInfo(sc, remote, ctx);
-            ctx.setVisitor(Visitors.pendingFusionVisitor(server, infos));
-            ctx.setOnClose(() -> {
-                LOGGER.log(Level.SEVERE, "Failed to connect to leader");
-                isFusing = false;
-            });
-            key.attach(ctx);
-
-            var data = Frame.FusionInit.buffer(serverName, address, new ArrayList<>(members.keySet()));
-            ctx.queueData(data);
+            sendRequest(remote, factory);
         }
+    }
+
+    private void sendRequest(InetSocketAddress remote, Function<SocketChannel, SelectionKey> factory)
+        throws IOException {
+        LOGGER.log(Level.INFO, "Sending fusion request...");
+        var sc = SocketChannel.open();
+        sc.configureBlocking(false);
+        try {
+            sc.connect(remote);
+        } catch (UnresolvedAddressException e) {
+            LOGGER.log(Level.INFO, "Unknown address: " + remote);
+            isFusing = false;
+            return;
+        }
+        var key = factory.apply(sc);
+        var ctx = new SelectionKeyControllerImpl(key, remote, false, true, false);
+        var infos = new UnknownRemoteInfo(sc, remote, ctx);
+        ctx.setVisitor(Visitors.pendingFusionVisitor(server, infos));
+        ctx.setOnClose(() -> {
+            LOGGER.log(Level.SEVERE, "Failed to connect to leader");
+            isFusing = false;
+        });
+        key.attach(ctx);
+
+        var data = Frame.FusionInit.buffer(serverName, address, new ArrayList<>(members.keySet()));
+        ctx.queueData(data);
     }
 
     public String info() {
@@ -376,5 +392,12 @@ final class ServerToServerController {
     private void logMessageAndClose(Level level, String message, InetSocketAddress address, Closeable closeable) {
         LOGGER.log(level, address + " : " + message);
         CloseableUtils.silentlyClose(closeable);
+    }
+
+    private record ServerLeader(SelectionKeyController controller, IdentifiedRemoteInfo infos) {
+        public ServerLeader {
+            Objects.requireNonNull(controller);
+            Objects.requireNonNull(infos);
+        }
     }
 }

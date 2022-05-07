@@ -1,10 +1,10 @@
 package fr.uge.chatfusion.core.selection;
 
-import fr.uge.chatfusion.core.BufferUtils;
-import fr.uge.chatfusion.core.CloseableUtils;
+import fr.uge.chatfusion.core.base.BufferUtils;
+import fr.uge.chatfusion.core.base.CloseableUtils;
 import fr.uge.chatfusion.core.frame.Frame;
 import fr.uge.chatfusion.core.frame.FrameVisitor;
-import fr.uge.chatfusion.core.reader.base.Reader;
+import fr.uge.chatfusion.core.reader.Reader;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -17,7 +17,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public final class SelectionKeyControllerImpl implements SelectionKeyController {
-    private static final int BUFFER_SIZE = 1_024;
+    private static final int BUFFER_SIZE = 2_048; // 2 KB
     private static final Logger LOGGER = Logger.getLogger(SelectionKeyControllerImpl.class.getName());
 
     private final SelectionKey key;

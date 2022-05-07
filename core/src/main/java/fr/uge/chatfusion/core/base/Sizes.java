@@ -1,4 +1,4 @@
-package fr.uge.chatfusion.core;
+package fr.uge.chatfusion.core.base;
 
 import java.util.Objects;
 
@@ -10,7 +10,7 @@ public final class Sizes {
     public static final int MAX_MESSAGE_SIZE = 1024;
     public static final int MAX_USERNAME_SIZE = 30;
     public static final int MAX_SERVER_NAME_SIZE = 100;
-    public static final int MAX_FILE_BLOCK_SIZE = 5000;
+    public static final int MAX_FILE_BLOCK_SIZE = 3_000;
 
     public static boolean checkMessageSize(String message) {
         Objects.requireNonNull(message);
