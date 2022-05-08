@@ -17,33 +17,33 @@ final class FusedServerVisitor implements FrameVisitor {
     }
 
     @Override
-    public void visit(Frame.PublicMessage publicMessage) {
-        Objects.requireNonNull(publicMessage);
-        server.forwardPublicMessage(publicMessage, infos);
+    public void visit(Frame.PublicMessage frame) {
+        Objects.requireNonNull(frame);
+        server.forwardPublicMessage(frame, infos);
     }
 
     @Override
-    public void visit(Frame.FusionRequest fusionRequest) {
-        Objects.requireNonNull(fusionRequest);
-        System.out.println(fusionRequest.remote());
-        server.fusionRequest(fusionRequest, infos);
+    public void visit(Frame.FusionRequest frame) {
+        Objects.requireNonNull(frame);
+        System.out.println(frame.remote());
+        server.fusionRequest(frame, infos);
     }
 
     @Override
-    public void visit(Frame.FusionChangeLeader fusionChangeLeader) {
-        Objects.requireNonNull(fusionChangeLeader);
-        server.changeLeader(fusionChangeLeader, infos);
+    public void visit(Frame.FusionChangeLeader frame) {
+        Objects.requireNonNull(frame);
+        server.changeLeader(frame, infos);
     }
 
     @Override
-    public void visit(Frame.DirectMessage directMessage) {
-        Objects.requireNonNull(directMessage);
-        server.sendDirectMessage(directMessage, infos);
+    public void visit(Frame.DirectMessage frame) {
+        Objects.requireNonNull(frame);
+        server.sendDirectMessage(frame, infos);
     }
 
     @Override
-    public void visit(Frame.FileSending fileSending) {
-        Objects.requireNonNull(fileSending);
-        server.sendFile(fileSending, infos);
+    public void visit(Frame.FileSending frame) {
+        Objects.requireNonNull(frame);
+        server.sendFile(frame, infos);
     }
 }

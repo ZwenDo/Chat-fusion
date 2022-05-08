@@ -1,3 +1,3 @@
-rootProject.name = "ChatFusion"
+rootProject.name = "Chatfusion"
 
 include("core", "client", "server")

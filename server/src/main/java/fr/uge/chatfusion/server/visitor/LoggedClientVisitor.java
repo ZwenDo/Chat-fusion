@@ -20,20 +20,20 @@ final class LoggedClientVisitor implements FrameVisitor {
     }
 
     @Override
-    public void visit(Frame.PublicMessage publicMessage) {
-        Objects.requireNonNull(publicMessage);
-        server.sendPublicMessage(publicMessage, infos);
+    public void visit(Frame.PublicMessage frame) {
+        Objects.requireNonNull(frame);
+        server.sendPublicMessage(frame, infos);
     }
 
     @Override
-    public void visit(Frame.DirectMessage directMessage) {
-        Objects.requireNonNull(directMessage);
-        server.sendDirectMessage(directMessage, infos);
+    public void visit(Frame.DirectMessage frame) {
+        Objects.requireNonNull(frame);
+        server.sendDirectMessage(frame, infos);
     }
 
     @Override
-    public void visit(Frame.FileSending fileSending) {
-        Objects.requireNonNull(fileSending);
-        server.sendFile(fileSending, infos);
+    public void visit(Frame.FileSending frame) {
+        Objects.requireNonNull(frame);
+        server.sendFile(frame, infos);
     }
 }

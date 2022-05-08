@@ -81,6 +81,7 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         processOut();
         if (bufferOut.position() == 0) {
             onSendingAllData.run();
+            processOut();
         }
         updateInterestOps();
     }
@@ -98,7 +99,19 @@ public final class SelectionKeyControllerImpl implements SelectionKeyController 
         if (closing) {
             throw new IllegalStateException("Connection is closing or closed.");
         }
-        BufferUtils.fillQueue(queue, data, BUFFER_SIZE);
+
+        if (queue.isEmpty()) {
+            queue.addLast(ByteBuffer.allocate(BUFFER_SIZE));
+        }
+
+        while (data.position() > 0) {
+            var dest = queue.getLast();
+            BufferUtils.transferTo(data, dest);
+            if (!dest.hasRemaining()) {
+                queue.addLast(ByteBuffer.allocate(BUFFER_SIZE));
+            }
+        }
+
         processOut();
         updateInterestOps();
     }

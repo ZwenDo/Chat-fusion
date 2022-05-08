@@ -21,6 +21,12 @@ final class StringReader implements Reader<String> {
     private State state = State.WAITING_SIZE;
     private String text;
 
+    /**
+     * Constructor.
+     *
+     * @param charset the charset to encode the string
+     * @param maxTextLength the maximum length of the string
+     */
     public StringReader(Charset charset, int maxTextLength) {
         Objects.requireNonNull(charset);
         if (maxTextLength < 0) {

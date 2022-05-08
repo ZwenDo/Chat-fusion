@@ -1,5 +1,4 @@
 /**
- * Package containing the classes used to read the information from {@link java.nio.ByteBuffer} in the whole ChatFusion
- * application.
+ * Defines the classes used to read information from {@link java.nio.ByteBuffer} in the Chatfusion applications.
  */
 package fr.uge.chatfusion.core.reader;

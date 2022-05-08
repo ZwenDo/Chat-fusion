@@ -14,32 +14,32 @@ final class UniqueVisitor implements FrameVisitor {
     }
 
     @Override
-    public void visit(Frame.LoginAccepted loginAccepted) {
-        Objects.requireNonNull(loginAccepted);
-        client.loginAccepted(loginAccepted.serverName());
+    public void visit(Frame.LoginAccepted frame) {
+        Objects.requireNonNull(frame);
+        client.loginAccepted(frame.serverName());
     }
 
     @Override
-    public void visit(Frame.LoginRefused loginRefused) {
-        Objects.requireNonNull(loginRefused);
+    public void visit(Frame.LoginRefused frame) {
+        Objects.requireNonNull(frame);
         client.loginRefused();
     }
 
     @Override
-    public void visit(Frame.PublicMessage publicMessage) {
-        Objects.requireNonNull(publicMessage);
-        client.receivePublicMessage(publicMessage);
+    public void visit(Frame.PublicMessage frame) {
+        Objects.requireNonNull(frame);
+        client.receivePublicMessage(frame);
     }
 
     @Override
-    public void visit(Frame.DirectMessage directMessage) {
-        Objects.requireNonNull(directMessage);
-        client.receiveDirectMessage(directMessage);
+    public void visit(Frame.DirectMessage frame) {
+        Objects.requireNonNull(frame);
+        client.receiveDirectMessage(frame);
     }
 
     @Override
-    public void visit(Frame.FileSending fileSending) {
-        Objects.requireNonNull(fileSending);
-        client.receiveFileBlock(fileSending);
+    public void visit(Frame.FileSending frame) {
+        Objects.requireNonNull(frame);
+        client.receiveFileBlock(frame);
     }
 }

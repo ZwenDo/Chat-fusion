@@ -5,7 +5,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
-public final class DateTimeUtils {
+final class DateTimeUtils {
     private static final DateTimeFormatter PATTERN = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
 
     private DateTimeUtils() {

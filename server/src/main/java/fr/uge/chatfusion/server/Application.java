@@ -20,6 +20,10 @@ final class Application {
         try {
             var serverName = args[0];
             var port = Integer.parseInt(args[1]);
+            if (port < 0 || port > 65535) {
+                System.out.println("Invalid port, must be between 0 and 65535.");
+                return;
+            }
             var server = new Server(serverName, port);
             server.launch();
         } catch (NumberFormatException e) {

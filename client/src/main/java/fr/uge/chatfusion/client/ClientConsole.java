@@ -22,7 +22,7 @@ final class ClientConsole implements Runnable {
             while (scanner.hasNext()) {
                 var input = scanner.nextLine();
 
-                if ("SHUTDOWN".equals(input)) {
+                if ("/disconnect".equals(input)) {
                     client.shutdown();
                 } else {
                     processCommand(input);

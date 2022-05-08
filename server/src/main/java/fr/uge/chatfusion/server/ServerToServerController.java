@@ -182,6 +182,8 @@ final class ServerToServerController {
         var otherInfos = new IdentifiedRemoteInfo(remoteName, infos.connection(), remoteAddress);
         other.setVisitor(Visitors.fusedServerVisitor(server, otherInfos));
 
+        isFusing = false;
+
         var stillLeader = serverName.compareTo(remoteName) < 0;
         if (stillLeader) {
             LOGGER.log(Level.INFO, "Still leader");
@@ -199,7 +201,6 @@ final class ServerToServerController {
             c.closeWhenAllSent();
         });
         this.members = new HashMap<>();
-        isFusing = false;
     }
 
     public void sendToAllExcept(ByteBuffer data, String originServer) {

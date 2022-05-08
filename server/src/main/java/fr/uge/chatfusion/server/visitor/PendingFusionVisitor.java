@@ -17,20 +17,20 @@ final class PendingFusionVisitor implements FrameVisitor {
     }
 
     @Override
-    public void visit(Frame.FusionInitOk fusionInitOk) {
-        Objects.requireNonNull(fusionInitOk);
-        server.fusionAccepted(fusionInitOk, infos);
+    public void visit(Frame.FusionInitOk frame) {
+        Objects.requireNonNull(frame);
+        server.fusionAccepted(frame, infos);
     }
 
     @Override
-    public void visit(Frame.FusionInitKo fusionInitKo) {
-        Objects.requireNonNull(fusionInitKo);
-        server.fusionRejected(fusionInitKo, infos);
+    public void visit(Frame.FusionInitKo frame) {
+        Objects.requireNonNull(frame);
+        server.fusionRejected(frame, infos);
     }
 
     @Override
-    public void visit(Frame.FusionInitFwd fusionInitFwd) {
-        Objects.requireNonNull(fusionInitFwd);
-        server.fusionForwarded(fusionInitFwd, infos);
+    public void visit(Frame.FusionInitFwd frame) {
+        Objects.requireNonNull(frame);
+        server.fusionForwarded(frame, infos);
     }
 }

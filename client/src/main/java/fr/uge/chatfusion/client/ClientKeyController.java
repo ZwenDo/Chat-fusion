@@ -1,6 +1,5 @@
 package fr.uge.chatfusion.client;
 
-import fr.uge.chatfusion.core.base.BufferUtils;
 import fr.uge.chatfusion.core.frame.FrameVisitor;
 import fr.uge.chatfusion.core.selection.SelectionKeyController;
 import fr.uge.chatfusion.core.selection.SelectionKeyControllerImpl;
@@ -41,7 +40,7 @@ final class ClientKeyController implements SelectionKeyController {
     @Override
     public void queueData(ByteBuffer data) {
         Objects.requireNonNull(data);
-        messageQueue.add(BufferUtils.copy(data));
+        messageQueue.add(data);
         processOut();
     }
 

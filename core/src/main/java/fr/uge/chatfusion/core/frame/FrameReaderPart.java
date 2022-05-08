@@ -16,6 +16,10 @@ import java.util.Objects;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
+/**
+ * Class used to create a frame reader. This class is simply a bean that stores the different basic readers used
+ * to create the frame readers without instantiating them several times.
+ */
 final class FrameReaderPart {
     private final Reader<Integer> integer;
     private final Reader<Long> longInteger;
@@ -40,14 +44,24 @@ final class FrameReaderPart {
         this.byteBuffer = byteBuffer;
     }
 
+    /**
+     * Creates a frame reader part.
+     *
+     * @param byteReader the byte reader used in the frame reader part
+     * @return a frame reader part
+     */
     public static FrameReaderPart create(Reader<Byte> byteReader) {
         Objects.requireNonNull(byteReader);
 
         var intReader = Readers.intReader();
         var stringReader = Readers.stringReader(Charsets.DEFAULT_CHARSET, Sizes.MAX_MESSAGE_SIZE);
-        var stringListReader = stringReader.repeat(intReader, Collectors.toUnmodifiableList());
+        var stringListReader = stringReader.compose()
+            .repeat(intReader, Collectors.toUnmodifiableList())
+            .toReader();
         var addressReader = addressReader(byteReader, intReader);
-        var bytesReader = byteReader.repeat(intReader, toByteBufferCollector());
+        var bytesReader = byteReader.compose()
+            .repeat(intReader, toByteBufferCollector())
+            .toReader();
         var longReader = Readers.longReader();
         return new FrameReaderPart(intReader, longReader, stringReader, stringListReader, addressReader, bytesReader);
     }
@@ -57,7 +71,8 @@ final class FrameReaderPart {
             byte[] address;
         };
 
-        return byteReader.repeat(byteReader, toByteArrayCollector())
+        return byteReader.compose()
+            .repeat(byteReader, toByteArrayCollector())
             .andThen(intReader, a -> ctx.address = a)
             .andFinally(p -> {
                 try {
@@ -65,7 +80,8 @@ final class FrameReaderPart {
                 } catch (UnknownHostException e) {
                     throw new UncheckedIOException(e);
                 }
-            });
+            })
+            .toReader();
     }
 
     private static Collector<Byte, List<Byte>, ByteBuffer> toByteBufferCollector() {
@@ -101,26 +117,56 @@ final class FrameReaderPart {
         return bytes;
     }
 
+    /**
+     * Gets the integer reader.
+     *
+     * @return the integer reader
+     */
     public Reader<Integer> integer() {
         return integer;
     }
 
+    /**
+     * Gets the long integer reader.
+     *
+     * @return the long integer reader
+     */
     public Reader<Long> longInteger() {
         return longInteger;
     }
 
+    /**
+     * Gets the string reader.
+     *
+     * @return the string reader
+     */
     public Reader<String> string() {
         return string;
     }
 
+    /**
+     * Gets the string list reader.
+     *
+     * @return the string list reader
+     */
     public Reader<List<String>> stringList() {
         return stringList;
     }
 
+    /**
+     * Gets the address reader.
+     *
+     * @return the address reader
+     */
     public Reader<InetSocketAddress> address() {
         return address;
     }
 
+    /**
+     * Gets the byte buffer reader.
+     *
+     * @return the byte buffer reader
+     */
     public Reader<ByteBuffer> byteBuffer() {
         return byteBuffer;
     }

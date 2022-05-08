@@ -32,10 +32,23 @@ allprojects {
         compileJava {
             options.compilerArgs.add("-Xlint:unchecked")
         }
+
+        javadoc {
+            (options as StandardJavadocDocletOptions)
+                .tags("apiNote:a:API Note:", "implSpec:a:Implementation Requirements:", "implNote:a:Implementation Note:")
+
+            options.memberLevel = JavadocMemberLevel.PACKAGE
+        }
+
+        clean {
+            delete("${rootDir}/$appDirName")
+        }
     }
 }
 
 val mainPackage = "fr.uge.chatfusion"
+val rootDir = file(".")
+val appDirName = "apps"
 
 fun Project.jarConfig(mainClassFQName: String) {
     application {
@@ -51,8 +64,9 @@ fun Project.jarConfig(mainClassFQName: String) {
         configurations["compileClasspath"].forEach { file ->
             from(zipTree(file.absoluteFile))
         }
-    }
 
+        destinationDirectory.set(file("${rootDir.absolutePath}/$appDirName"))
+    }
 }
 
 project(":client") {

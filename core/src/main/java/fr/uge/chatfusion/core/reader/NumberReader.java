@@ -22,6 +22,12 @@ final class NumberReader<E extends Number> implements Reader<E> {
     private State state = State.WAITING;
     private E value;
 
+    /**
+     * Constructor.
+     *
+     * @param size the binary size of the number to read
+     * @param extractor a function to convert the stored bytes into the corresponding number
+     */
     public NumberReader(int size, Function<? super ByteBuffer, E> extractor) {
         if (size <= 0) {
             throw new IllegalArgumentException("Size must be strictly positive");
