@@ -5,6 +5,7 @@ import fr.uge.chatfusion.core.base.Sizes;
 import java.io.IOException;
 import java.nio.file.Path;
 
+
 public final class Application {
     private Application() {
         throw new AssertionError("No instances.");
