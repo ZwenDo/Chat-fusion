@@ -1,31 +1,46 @@
 package fr.uge.chatfusion.core.reader;
 
 
-import fr.uge.chatfusion.core.BufferUtils;
+import fr.uge.chatfusion.core.base.BufferUtils;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
-public final class StringReader implements Reader<String> {
-    private static final Charset CS = StandardCharsets.UTF_8;
-    private static final int MAX_BUFFER_SIZE = 1024;
-
+/**
+ * A reader that reads a {@link String}.
+ */
+final class StringReader implements Reader<String> {
     private enum State {
         DONE, WAITING_SIZE, WAITING_TEXT, ERROR
     }
 
+    private final Reader<Integer> sizeReader = Readers.intReader();
+    private final Charset charset;
+    private final ByteBuffer textBuffer;
     private State state = State.WAITING_SIZE;
-    private final ByteBuffer textBuffer = ByteBuffer.allocate(MAX_BUFFER_SIZE);
-    private final Reader<Integer> sizeReader = NumberReaders.intReader();
     private String text;
+
+    /**
+     * Constructor.
+     *
+     * @param charset the charset to encode the string
+     * @param maxTextLength the maximum length of the string
+     */
+    public StringReader(Charset charset, int maxTextLength) {
+        Objects.requireNonNull(charset);
+        if (maxTextLength < 0) {
+            throw new IllegalArgumentException("maxTextLength must be positive.");
+        }
+        this.charset = charset;
+        textBuffer = ByteBuffer.allocate(maxTextLength);
+    }
 
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
         Objects.requireNonNull(buffer);
         if (state == State.DONE || state == State.ERROR) {
-            throw new IllegalStateException("Reader is already done or in error state");
+            throw new IllegalStateException("Reader is already done or in error state.");
         }
 
         if (state == State.WAITING_SIZE) {
@@ -38,13 +53,8 @@ public final class StringReader implements Reader<String> {
             }
         }
 
-        buffer.flip();
-        try {
-            if (state == State.WAITING_TEXT) {
-                computeText(buffer);
-            }
-        } finally {
-            buffer.compact();
+        if (state == State.WAITING_TEXT) {
+            computeText(buffer);
         }
 
         if (text == null) return ProcessStatus.REFILL;
@@ -73,7 +83,7 @@ public final class StringReader implements Reader<String> {
         BufferUtils.transferTo(buffer, textBuffer);
         if (!textBuffer.hasRemaining()) {
             textBuffer.flip();
-            text = CS.decode(textBuffer).toString();
+            text = charset.decode(textBuffer).toString();
             textBuffer.compact();
         }
     }
